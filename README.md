@@ -1,8 +1,8 @@
 # nAnicitus
 
-nAnicitus is a windows service that acts as a gatekeeper for the [SymStore](http://msdn.microsoft.com/en-us/library/windows/hardware/ff558848(v=vs.85).aspx) application. SymStore provides a relatively simple way to create a local / private symbol server with the disadvantage that it should really only be called by one user at the time because it doesn't support [multiple transactions at the same time](http://msdn.microsoft.com/en-us/library/windows/hardware/ff558851(v=vs.85).aspx). The nAnicitus windows service 'serializes' access to SymStore to allow multiple users to add symbols to the symbol server.
+nAnicitus is a windows service that acts as a gatekeeper for the [SymStore][symstore_msdn] application. SymStore provides a relatively simple way to create a local / private symbol server with the disadvantage that it should really only be called by one user at the time because it doesn't support [multiple transactions at the same time][symstore_msdn_singletransaction]. The nAnicitus windows service 'serializes' access to SymStore to allow multiple users to add symbols to the symbol server.
 
-Besides handling the the access to the symbol server nAnicitus also copies the sources into a UNC source location for access by a source server and performs [source indexing](http://msdn.microsoft.com/en-us/library/windows/hardware/ff556898(v=vs.85).aspx) on the PDB files before they are stored in the symbol UNC path.
+Besides handling the the access to the symbol server nAnicitus also copies the sources into a UNC source location for access by a source server and performs [source indexing][sourceindexing_msdn] on the PDB files before they are stored in the symbol UNC path.
 
 
 # Installation instructions
@@ -27,7 +27,7 @@ While running nAnicitus will continuously monitor the upload directory for new f
 
 1. nAnicitus copies the symbol package to a temporary location (`c:\users\<USER_NAME>\AppData\Local\Temp\Nanicitus.Core`) and deletes the package location from the upload directory.
 2. The symbol package is unpacked.
-* The PDB files are updated with a [srcsrv stream](http://msdn.microsoft.com/en-us/library/windows/hardware/ff552219(v=vs.85).aspx).
+* The PDB files are updated with a [srcsrv stream][srcsrv_stream].
 * The source files are copied to the source UNC path.
 * The PDB files are pushed to the symbol UNC path via SymStore.
 
@@ -37,5 +37,12 @@ The solution files are created in Visual Studio 2012 (using .NET 4.5) and the en
 
 Note that the build scripts assume that:
 
-* The binaries should be signed, however the SNK key file is not included in the repository so a new key file has to be [created](http://msdn.microsoft.com/en-us/library/6f05ezxy(v=vs.110).aspx). The key file is referenced through an environment variable called `SOFTWARE_SIGNING_KEY_PATH` that has as value the full path of the key file. 
+* The binaries should be signed, however the SNK key file is not included in the repository so a new key file has to be [created][snkfile_msdn]. The key file is referenced through an environment variable called `SOFTWARE_SIGNING_KEY_PATH` that has as value the full path of the key file. 
 * GIT can be found on the PATH somewhere so that it can be called to get the hash of the last commit in the current repository. This hash is embedded in the nAnicitus executable together with information about the build configuration and build time and date.
+
+
+[symstore_msdn]: http://msdn.microsoft.com/en-us/library/windows/hardware/ff558848(v=vs.85).aspx
+[symstore_msdn_singletransaction]: http://msdn.microsoft.com/en-us/library/windows/hardware/ff558851(v=vs.85).aspx
+[sourceindexing_msdn]: http://msdn.microsoft.com/en-us/library/windows/hardware/ff556898(v=vs.85).aspx
+[srcsrv_stream]: http://msdn.microsoft.com/en-us/library/windows/hardware/ff552219(v=vs.85).aspx
+[snkfile_msdn]: http://msdn.microsoft.com/en-us/library/6f05ezxy(v=vs.110).aspx
