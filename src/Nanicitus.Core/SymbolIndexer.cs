@@ -171,6 +171,12 @@ namespace Nanicitus.Core
         private readonly string m_SymbolsUncPath;
 
         /// <summary>
+        /// The full path to the location where the processed packages are stored
+        /// in case they are needed at a later stage.
+        /// </summary>
+        private readonly string m_ProcessedPackagesPath;
+
+        /// <summary>
         /// The directory in which the packages will be unzipped.
         /// </summary>
         private readonly string m_UnpackDirectory = CreateUnzipDirectory();
@@ -211,6 +217,10 @@ namespace Nanicitus.Core
                     configuration.HasValueFor(ConfigurationKeys.SymbolsIndexUncPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
                     ConfigurationKeys.SymbolsIndexUncPath);
+                Lokad.Enforce.With<ArgumentException>(
+                    configuration.HasValueFor(ConfigurationKeys.ProcessedPackagesPath),
+                    Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
+                    ConfigurationKeys.ProcessedPackagesPath);
             }
 
             m_Queue = packageQueue;
@@ -224,6 +234,7 @@ namespace Nanicitus.Core
             m_PdbStrPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "pdbstr.exe");
             m_SourceUncPath = configuration.Value<string>(ConfigurationKeys.SourceIndexUncPath);
             m_SymbolsUncPath = configuration.Value<string>(ConfigurationKeys.SymbolsIndexUncPath);
+            m_ProcessedPackagesPath = configuration.Value<string>(ConfigurationKeys.ProcessedPackagesPath);
         }
 
         private void HandleOnEnqueue(object sender, EventArgs e)
@@ -304,7 +315,19 @@ namespace Nanicitus.Core
 
                     try
                     {
-                        File.Delete(packageFile);
+                        if (!Directory.Exists(m_ProcessedPackagesPath))
+                        {
+                            try
+                            {
+                                Directory.CreateDirectory(m_ProcessedPackagesPath);
+                            }
+                            catch (IOException)
+                            {
+                            }
+                        }
+
+                        var newPath = Path.Combine(m_ProcessedPackagesPath, Path.GetFileName(packageFile));
+                        File.Move(packageFile, newPath);
                     }
                     catch (IOException)
                     {

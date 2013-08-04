@@ -35,6 +35,13 @@ namespace Nanicitus.Core
 
         /// <summary>
         /// The configuration key that is used to retrieve path for the directory in 
+        /// which the processed symbol packages will be placed.
+        /// </summary>
+        public static readonly ConfigurationKey ProcessedPackagesPath
+            = new ConfigurationKey("ProcessedPackagesPath", typeof(string));
+
+        /// <summary>
+        /// The configuration key that is used to retrieve path for the directory in 
         /// which the uploads will be placed.
         /// </summary>
         public static readonly ConfigurationKey UploadPath
@@ -51,6 +58,7 @@ namespace Nanicitus.Core
                     DebuggingToolsDirectory,
                     SourceIndexUncPath,
                     SymbolsIndexUncPath,
+                    ProcessedPackagesPath,
                     UploadPath
                 };
         }

@@ -9,9 +9,10 @@ Besides handling the the access to the symbol server nAnicitus also copies the s
 * Install [debugging tools for windows](http://msdn.microsoft.com/en-us/library/windows/hardware/gg463009.aspx). Make sure to install the complete set so that you get the symbol server tools.
 * Install nAnicitus from the zip archive.
 * Update the configuration file with the paths to:
- * The debugging tools directory (e.g. `c:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64`).
+ * The debugging tools directory (e.g. `c:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64`). This path may be left out if it is in the default location (as given here).
  * The UNC path to the source index directory (e.g. `\\MyServer\sources`).
  * The UNC path to the symbols index directory (e.g. `\\MyServer\symbols`).
+ * The directory where the NuGet symbol packages will be dropped after they are processed.
  * The directory where the NuGet symbol packages can be uploaded.
 * To install the application as a windows service, open a command line window with administrative permissions, navigate to the nAnicitus install directory and execute the following command:
 
@@ -25,11 +26,11 @@ Once the service is installed and started all you need to do to add symbols to t
 
 While running nAnicitus will continuously monitor the upload directory for new files. Once a new file is detected the following steps will be taken.
 
-1. nAnicitus copies the symbol package to a temporary location (`c:\users\<USER_NAME>\AppData\Local\Temp\Nanicitus.Core`) and deletes the package location from the upload directory.
-2. The symbol package is unpacked.
+1. nAnicitus unpacks the symbol package to a temporary location (`c:\users\<USER_NAME>\AppData\Local\Temp\Nanicitus.Core`).
 * The PDB files are updated with a [srcsrv stream][srcsrv_stream].
 * The source files are copied to the source UNC path.
 * The PDB files are pushed to the symbol UNC path via SymStore.
+* The symbol package is moved to the processed package directory.
 
 
 # How to build
