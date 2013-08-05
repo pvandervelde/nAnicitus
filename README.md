@@ -7,7 +7,7 @@ Besides handling the the access to the symbol server nAnicitus also copies the s
 
 # Installation instructions
 * Install [debugging tools for windows](http://msdn.microsoft.com/en-us/library/windows/hardware/gg463009.aspx). Make sure to install the complete set so that you get the symbol server tools.
-* Install nAnicitus from the zip archive.
+* Install nAnicitus from the zip archive, which is available from the [releases page](https://github.com/pvandervelde/nAnicitus/releases).
 * Update the configuration file with the paths to:
  * The debugging tools directory (e.g. `c:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64`). This path may be left out if it is in the default location (as given here).
  * The UNC path to the source index directory (e.g. `\\MyServer\sources`).
