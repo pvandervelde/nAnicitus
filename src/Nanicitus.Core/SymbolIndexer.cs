@@ -277,7 +277,7 @@ namespace Nanicitus.Core
             {
                 if (m_Queue.IsEmpty)
                 {
-                    return;
+                    break;
                 }
 
                 var packageFile = m_Queue.Dequeue();
@@ -301,7 +301,6 @@ namespace Nanicitus.Core
                 catch (Exception)
                 {
                     // Really just ignore it and move on
-                    return;
                 }
                 finally
                 {
@@ -334,6 +333,8 @@ namespace Nanicitus.Core
                     }
                 }
             }
+
+            CleanUpWorkerTask();
         }
 
         private string Unpack(string packageFile, string project, Version version)
@@ -523,11 +524,19 @@ namespace Nanicitus.Core
                         m_Worker.Wait();
                     }
 
-                    m_CancellationSource = null;
-                    m_Worker = null;
+                    CleanUpWorkerTask();
                 });
 
             return result;
+        }
+
+        private void CleanUpWorkerTask()
+        {
+            lock (m_Lock)
+            {
+                m_CancellationSource = null;
+                m_Worker = null;
+            }
         }
 
         /// <summary>
