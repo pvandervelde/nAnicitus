@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>nAnicitus by pvandervelde</title>
+  </head>
+
+  <body>
+    <header>
+      <div class="inner">
+        <h1>nAnicitus</h1>
+        <h2>nAnicitus is a windows service that acts as a gatekeeper for the SymStore application.</h2>
+        <a href="https://github.com/pvandervelde/nAnicitus" class="button"><small>View project on</small>GitHub</a>
+      </div>
+    </header>
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h1>
+<a name="nanicitus" class="anchor" href="#nanicitus"><span class="octicon octicon-link"></span></a>nAnicitus</h1>
+
+<p>nAnicitus is a windows service that acts as a gatekeeper for the <a href="http://msdn.microsoft.com/en-us/library/windows/hardware/ff558848(v=vs.85).aspx">SymStore</a> application. SymStore provides a relatively simple way to create a local / private symbol server with the disadvantage that it should really only be called by one user at the time because it doesn't support <a href="http://msdn.microsoft.com/en-us/library/windows/hardware/ff558851(v=vs.85).aspx">multiple transactions at the same time</a>. The nAnicitus windows service 'serializes' access to SymStore to allow multiple users to add symbols to the symbol server.</p>
+
+<p>Besides handling the the access to the symbol server nAnicitus also copies the sources into a UNC source location for access by a source server and performs <a href="http://msdn.microsoft.com/en-us/library/windows/hardware/ff556898(v=vs.85).aspx">source indexing</a> on the PDB files before they are stored in the symbol UNC path.</p>
+
+<h1>
+<a name="installation-instructions" class="anchor" href="#installation-instructions"><span class="octicon octicon-link"></span></a>Installation instructions</h1>
+
+<ul>
+<li>Install <a href="http://msdn.microsoft.com/en-us/library/windows/hardware/gg463009.aspx">debugging tools for windows</a>. Make sure to install the complete set so that you get the symbol server tools.</li>
+<li>Install nAnicitus from the zip archive, which is available from the <a href="https://github.com/pvandervelde/nAnicitus/releases">releases page</a>.</li>
+<li>Update the configuration file with the paths to:
+
+<ul>
+<li>The debugging tools directory (e.g. <code>c:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64</code>). This path may be left out if it is in the default location (as given here).</li>
+<li>The UNC path to the source index directory (e.g. <code>\\MyServer\sources</code>).</li>
+<li>The UNC path to the symbols index directory (e.g. <code>\\MyServer\symbols</code>).</li>
+<li>The directory where the NuGet symbol packages will be dropped after they are processed.</li>
+<li>The directory where the NuGet symbol packages can be uploaded.</li>
+</ul>
+</li>
+<li>
+<p>To install the application as a windows service, open a command line window with administrative permissions, navigate to the nAnicitus install directory and execute the following command:</p>
+
+<pre><code>Nanicitus.Service install
+</code></pre>
+</li>
+<li><p>Once the service is installed use the normal windows services control to change the properties of the service.</p></li>
+</ul><h1>
+<a name="operation" class="anchor" href="#operation"><span class="octicon octicon-link"></span></a>Operation</h1>
+
+<p>Once the service is installed and started all you need to do to add symbols to the symbol server is to copy a NuGet symbol package to the upload directory. Note that the symbol package must have both PDB files <strong>and</strong> <a href="http://docs.nuget.org/docs/creating-packages/creating-and-publishing-a-symbol-package">source files</a>.</p>
+
+<p>While running nAnicitus will continuously monitor the upload directory for new files. Once a new file is detected the following steps will be taken.</p>
+
+<ol>
+<li>nAnicitus unpacks the symbol package to a temporary location (<code>c:\users\&lt;USER_NAME&gt;\AppData\Local\Temp\Nanicitus.Core</code>).</li>
+<li>The PDB files are updated with a <a href="http://msdn.microsoft.com/en-us/library/windows/hardware/ff552219(v=vs.85).aspx">srcsrv stream</a>.</li>
+<li>The source files are copied to the source UNC path.</li>
+<li>The PDB files are pushed to the symbol UNC path via SymStore.</li>
+<li>The symbol package is moved to the processed package directory.</li>
+</ol><h1>
+<a name="how-to-build" class="anchor" href="#how-to-build"><span class="octicon octicon-link"></span></a>How to build</h1>
+
+<p>The solution files are created in Visual Studio 2012 (using .NET 4.5) and the entire project can be build by invoking MsBuild on the nanicitus.integration.msbuild script. This will build the binaries and the ZIP archive. The binaries will be placed in the <code>build\bin\AnyCpu\Release</code> directory and the ZIP archive will be placed in the <code>build\deploy</code> directory.</p>
+
+<p>Note that the build scripts assume that:</p>
+
+<ul>
+<li>The binaries should be signed, however the SNK key file is not included in the repository so a new key file has to be <a href="http://msdn.microsoft.com/en-us/library/6f05ezxy(v=vs.110).aspx">created</a>. The key file is referenced through an environment variable called <code>SOFTWARE_SIGNING_KEY_PATH</code> that has as value the full path of the key file. </li>
+<li>GIT can be found on the PATH somewhere so that it can be called to get the hash of the last commit in the current repository. This hash is embedded in the nAnicitus executable together with information about the build configuration and build time and date.</li>
+</ul>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/pvandervelde/nAnicitus/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/pvandervelde/nAnicitus/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/pvandervelde/nAnicitus"></a> is maintained by <a href="https://github.com/pvandervelde">pvandervelde</a>.</p>
+
+          <p>This page was generated by <a href="pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
+    </div>
+
+  
+  </body>
+</html>
