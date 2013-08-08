@@ -54,11 +54,15 @@
     
         <ItemGroup Condition="'$(DirBuildBin)' != ''">
             <ServiceFiles Include="$(DirBuildBin)\Autofac.dll" />
+            <ServiceFiles Include="$(DirBuildBin)\Autofac.Configuration.dll" />
             <ServiceFiles Include="$(DirBuildBin)\Ionic.Zip.Reduced.dll" />
             <ServiceFiles Include="$(DirBuildBin)\Lokad.Shared.dll" />
+            <ServiceFiles Include="$(DirBuildBin)\NLog.dll" />
             <ServiceFiles Include="$(DirBuildBin)\Nuclei.Build.dll" />
             <ServiceFiles Include="$(DirBuildBin)\Nuclei.Configuration.dll" />
+            <ServiceFiles Include="$(DirBuildBin)\Nuclei.Diagnostics.dll" />
             <ServiceFiles Include="$(DirBuildBin)\NuGet.Core.dll" />
+            <ServiceFiles Include="$(DirBuildBin)\QuickGraph.dll" />
             <ServiceFiles Include="$(DirBuildBin)\Topshelf.dll" />
             <ServiceFiles Include="$(DirBuildBin)\NAnicitus.Core.dll" />
             <ServiceFiles Include="$(DirBuildBin)\NAnicitus.Service.exe" />
