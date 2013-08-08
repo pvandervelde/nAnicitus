@@ -4,9 +4,9 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
-using System.Linq;
 using Autofac;
 using Nuclei.Configuration;
+using Nuclei.Diagnostics;
 
 namespace Nanicitus.Core
 {
@@ -21,15 +21,10 @@ namespace Nanicitus.Core
         /// <param name="builder">The builder through which components can be registered.</param>
         protected override void Load(ContainerBuilder builder)
         {
-            builder.Register(c => new XmlConfiguration(
-                        ConfigurationKeys.ToCollection().ToList(),
-                        Constants.ConfigurationSectionApplicationSettings))
-                    .As<IConfiguration>()
-                    .SingleInstance();
-
             builder.Register(c => new SymbolIndexer(
                     c.Resolve<IQueueSymbolPackages>(),
-                    c.Resolve<IConfiguration>()))
+                    c.Resolve<IConfiguration>(),
+                    c.Resolve<SystemDiagnostics>()))
                 .As<IIndexSymbols>()
                 .SingleInstance();
 
@@ -39,7 +34,8 @@ namespace Nanicitus.Core
 
             builder.Register(c => new FileWatcherBasedPackageUploader(
                     c.Resolve<IQueueSymbolPackages>(),
-                    c.Resolve<IConfiguration>()))
+                    c.Resolve<IConfiguration>(),
+                    c.Resolve<SystemDiagnostics>()))
                 .As<IUploadPackages>()
                 .SingleInstance();
         }

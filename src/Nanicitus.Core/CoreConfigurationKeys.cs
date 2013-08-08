@@ -12,39 +12,39 @@ namespace Nanicitus.Core
     /// <summary>
     /// Defines all the configuration keys.
     /// </summary>
-    internal static class ConfigurationKeys
+    public static class CoreConfigurationKeys
     {
         /// <summary>
         /// The configuration key that is used to retrieve directory path where the symbol server
         /// tools are installed.
         /// </summary>
-        public static readonly ConfigurationKey DebuggingToolsDirectory
+        internal static readonly ConfigurationKey s_DebuggingToolsDirectory
             = new ConfigurationKey("DebuggingToolsDirectory", typeof(string));
 
         /// <summary>
         /// The configuration key that is used to retrieve UNC path for the source index directory.
         /// </summary>
-        public static readonly ConfigurationKey SourceIndexUncPath
+        internal static readonly ConfigurationKey s_SourceIndexUncPath
             = new ConfigurationKey("SourceIndexUncPath", typeof(string));
 
         /// <summary>
         /// The configuration key that is used to retrieve UNC path for the symbols directory.
         /// </summary>
-        public static readonly ConfigurationKey SymbolsIndexUncPath
+        internal static readonly ConfigurationKey s_SymbolsIndexUncPath
             = new ConfigurationKey("SymbolsIndexUncPath", typeof(string));
 
         /// <summary>
         /// The configuration key that is used to retrieve path for the directory in 
         /// which the processed symbol packages will be placed.
         /// </summary>
-        public static readonly ConfigurationKey ProcessedPackagesPath
+        internal static readonly ConfigurationKey s_ProcessedPackagesPath
             = new ConfigurationKey("ProcessedPackagesPath", typeof(string));
 
         /// <summary>
         /// The configuration key that is used to retrieve path for the directory in 
         /// which the uploads will be placed.
         /// </summary>
-        public static readonly ConfigurationKey UploadPath
+        internal static readonly ConfigurationKey s_UploadPath
             = new ConfigurationKey("UploadPath", typeof(string));
 
         /// <summary>
@@ -55,11 +55,11 @@ namespace Nanicitus.Core
         {
             return new List<ConfigurationKey>
                 {
-                    DebuggingToolsDirectory,
-                    SourceIndexUncPath,
-                    SymbolsIndexUncPath,
-                    ProcessedPackagesPath,
-                    UploadPath
+                    s_DebuggingToolsDirectory,
+                    s_SourceIndexUncPath,
+                    s_SymbolsIndexUncPath,
+                    s_ProcessedPackagesPath,
+                    s_UploadPath
                 };
         }
     }

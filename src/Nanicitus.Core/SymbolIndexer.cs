@@ -14,6 +14,8 @@ using System.Threading.Tasks;
 using Ionic.Zip;
 using Nanicitus.Core.Properties;
 using Nuclei.Configuration;
+using Nuclei.Diagnostics;
+using Nuclei.Diagnostics.Logging;
 using NuGet;
 
 namespace Nanicitus.Core
@@ -143,6 +145,11 @@ namespace Nanicitus.Core
         private readonly IQueueSymbolPackages m_Queue;
 
         /// <summary>
+        /// The object that provides the diagnostics methods for the application.
+        /// </summary>
+        private readonly SystemDiagnostics m_Diagnostics;
+
+        /// <summary>
         /// The full path to the 'srctool.exe' application that is used
         /// to extract source file information from a PDB file.
         /// </summary>
@@ -201,40 +208,44 @@ namespace Nanicitus.Core
         /// </summary>
         /// <param name="packageQueue">The object that queues packages that need to be processed.</param>
         /// <param name="configuration">The configuration.</param>
+        /// <param name="diagnostics">The object that provides the diagnostics methods for the application.</param>
         public SymbolIndexer(
             IQueueSymbolPackages packageQueue,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            SystemDiagnostics diagnostics)
         {
             {
                 Lokad.Enforce.Argument(() => packageQueue);
                 Lokad.Enforce.Argument(() => configuration);
+                Lokad.Enforce.Argument(() => diagnostics);
 
                 Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(ConfigurationKeys.SourceIndexUncPath),
+                    configuration.HasValueFor(CoreConfigurationKeys.s_SourceIndexUncPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    ConfigurationKeys.SourceIndexUncPath);
+                    CoreConfigurationKeys.s_SourceIndexUncPath);
                 Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(ConfigurationKeys.SymbolsIndexUncPath),
+                    configuration.HasValueFor(CoreConfigurationKeys.s_SymbolsIndexUncPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    ConfigurationKeys.SymbolsIndexUncPath);
+                    CoreConfigurationKeys.s_SymbolsIndexUncPath);
                 Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(ConfigurationKeys.ProcessedPackagesPath),
+                    configuration.HasValueFor(CoreConfigurationKeys.s_ProcessedPackagesPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    ConfigurationKeys.ProcessedPackagesPath);
+                    CoreConfigurationKeys.s_ProcessedPackagesPath);
             }
 
+            m_Diagnostics = diagnostics;
             m_Queue = packageQueue;
             m_Queue.OnEnqueue += HandleOnEnqueue;
 
-            var debuggingToolsDirectory = configuration.HasValueFor(ConfigurationKeys.DebuggingToolsDirectory)
-                ? configuration.Value<string>(ConfigurationKeys.DebuggingToolsDirectory)
+            var debuggingToolsDirectory = configuration.HasValueFor(CoreConfigurationKeys.s_DebuggingToolsDirectory)
+                ? configuration.Value<string>(CoreConfigurationKeys.s_DebuggingToolsDirectory)
                 : DefaultSymbolServerToolsDirectory();
             m_SymStorePath = Path.Combine(debuggingToolsDirectory, "symstore.exe");
             m_SrcToolPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "srctool.exe");
             m_PdbStrPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "pdbstr.exe");
-            m_SourceUncPath = configuration.Value<string>(ConfigurationKeys.SourceIndexUncPath);
-            m_SymbolsUncPath = configuration.Value<string>(ConfigurationKeys.SymbolsIndexUncPath);
-            m_ProcessedPackagesPath = configuration.Value<string>(ConfigurationKeys.ProcessedPackagesPath);
+            m_SourceUncPath = configuration.Value<string>(CoreConfigurationKeys.s_SourceIndexUncPath);
+            m_SymbolsUncPath = configuration.Value<string>(CoreConfigurationKeys.s_SymbolsIndexUncPath);
+            m_ProcessedPackagesPath = configuration.Value<string>(CoreConfigurationKeys.s_ProcessedPackagesPath);
         }
 
         private void HandleOnEnqueue(object sender, EventArgs e)
@@ -250,6 +261,10 @@ namespace Nanicitus.Core
                 {
                     return;
                 }
+
+                m_Diagnostics.Log(
+                    LevelToLog.Trace,
+                    Resources.Log_Messages_SymbolIndexer_NewItemInQueue_StartingThread);
 
                 m_CancellationSource = new CancellationTokenSource();
                 m_Worker = Task.Factory.StartNew(
@@ -277,6 +292,10 @@ namespace Nanicitus.Core
             {
                 if (m_Queue.IsEmpty)
                 {
+                    m_Diagnostics.Log(
+                        LevelToLog.Trace, 
+                        Resources.Log_Messages_SymbolIndexer_QueueEmpty);
+
                     break;
                 }
 
@@ -290,6 +309,14 @@ namespace Nanicitus.Core
                 var project = package.Id;
                 var version = package.Version.Version;
 
+                m_Diagnostics.Log(
+                    LevelToLog.Info, 
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_ProcessingPackage_WithIdAndVersion,
+                        project,
+                        version));
+
                 // Unpack package file in temp location
                 var unpackLocation = Unpack(packageFile, project, version);
                 try
@@ -298,9 +325,16 @@ namespace Nanicitus.Core
                     UploadSources(unpackLocation, project, version);
                     UploadSymbols(unpackLocation, project, version);
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
-                    // Really just ignore it and move on
+                    m_Diagnostics.Log(
+                        LevelToLog.Error,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Resources.Log_Messages_SymbolIndexer_ProcessingFailed_WithExceptionAndPackageDetails,
+                            e,
+                            project,
+                            version));
                 }
                 finally
                 {
@@ -308,8 +342,16 @@ namespace Nanicitus.Core
                     {
                         Directory.Delete(unpackLocation, true);
                     }
-                    catch (IOException)
+                    catch (IOException e)
                     {
+                        m_Diagnostics.Log(
+                            LevelToLog.Error,
+                            string.Format(
+                                CultureInfo.InvariantCulture,
+                                Resources.Log_Messages_SymbolIndexer_PackageDeleteFailed_WithExceptionAndPackageDetails,
+                                e,
+                                project,
+                                version));
                     }
 
                     try
@@ -320,16 +362,30 @@ namespace Nanicitus.Core
                             {
                                 Directory.CreateDirectory(m_ProcessedPackagesPath);
                             }
-                            catch (IOException)
+                            catch (IOException e)
                             {
+                                m_Diagnostics.Log(
+                                    LevelToLog.Error,
+                                    string.Format(
+                                        CultureInfo.InvariantCulture,
+                                        Resources.Log_Messages_SymbolIndexer_CreateProcessedPackagePathFailed_WithException,
+                                        e));
                             }
                         }
 
                         var newPath = Path.Combine(m_ProcessedPackagesPath, Path.GetFileName(packageFile));
                         File.Move(packageFile, newPath);
                     }
-                    catch (IOException)
+                    catch (IOException e)
                     {
+                        m_Diagnostics.Log(
+                            LevelToLog.Error,
+                            string.Format(
+                                CultureInfo.InvariantCulture,
+                                Resources.Log_Messages_SymbolIndexer_PackageMoveFailed_WithExceptionAndPackageDetails,
+                                e,
+                                project,
+                                version));
                     }
                 }
             }
@@ -378,6 +434,15 @@ namespace Nanicitus.Core
             var pdbFiles = GetPdbFiles(unpackLocation);
             foreach (var pdbFile in pdbFiles)
             {
+                m_Diagnostics.Log(
+                    LevelToLog.Info,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_IndexingSymbol_WithPackageDetails,
+                        pdbFile,
+                        project,
+                        version));
+
                 var indexingFile = new FileInfo(pdbFile + ".stream");
                 using (var writer = indexingFile.CreateText())
                 {
@@ -449,7 +514,23 @@ namespace Nanicitus.Core
                     "-w -p:{0} -i:{1} -s:srcsrv",
                     pdbFile,
                     indexingFile.FullName);
-                Execute(m_PdbStrPath, pdbstrArguments);
+                var output = Execute(m_PdbStrPath, pdbstrArguments);
+
+                m_Diagnostics.Log(
+                    LevelToLog.Trace,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_SymbolIndexingComplete_PdbStrOutput,
+                        !string.IsNullOrWhiteSpace(output) ? output : Resources.Log_Messages_ExternalTool_NoResponse));
+
+                m_Diagnostics.Log(
+                    LevelToLog.Info,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_SymbolIndexingComplete_WithPackageDetails,
+                        pdbFile,
+                        project,
+                        version));
             }
         }
 
@@ -463,12 +544,33 @@ namespace Nanicitus.Core
             {
                 var destinationFile = sourceFile.Replace(sourceLocation, destination);
                 var directory = Path.GetDirectoryName(destinationFile);
+
+                m_Diagnostics.Log(
+                    LevelToLog.Info,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_UploadingSources_WithPackageDetails,
+                        sourceFile,
+                        destinationFile,
+                        project,
+                        version));
+
                 if (!Directory.Exists(directory))
                 {
                     Directory.CreateDirectory(directory);
                 }
 
                 File.Copy(sourceFile, destinationFile);
+
+                m_Diagnostics.Log(
+                    LevelToLog.Info,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_SourceUploadComplete_WithPackageDetails,
+                        sourceFile,
+                        destinationFile,
+                        project,
+                        version));
             }
         }
 
@@ -477,6 +579,15 @@ namespace Nanicitus.Core
             var pdbFiles = GetPdbFiles(unpackLocation);
             foreach (var path in pdbFiles)
             {
+                m_Diagnostics.Log(
+                    LevelToLog.Info,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_UploadingSymbols_WithPackageDetails,
+                        path,
+                        project,
+                        version));
+
                 var symStoreArguments = string.Format(
                     CultureInfo.InvariantCulture,
                     "add /f \"{0}\" /s \"{1}\" /t \"{2}\" /v {3}",
@@ -484,7 +595,23 @@ namespace Nanicitus.Core
                     m_SymbolsUncPath,
                     project,
                     version);
-                Execute(m_SymStorePath, symStoreArguments);
+                var output = Execute(m_SymStorePath, symStoreArguments);
+
+                m_Diagnostics.Log(
+                    LevelToLog.Trace,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_UploadingSymbols_SymStoreOutput,
+                        !string.IsNullOrWhiteSpace(output) ? output : Resources.Log_Messages_ExternalTool_NoResponse));
+
+                m_Diagnostics.Log(
+                    LevelToLog.Info,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_SymbolUploadComplete_WithPackageDetails,
+                        path,
+                        project,
+                        version));
             }
         }
 
@@ -502,6 +629,10 @@ namespace Nanicitus.Core
             var result = Task.Factory.StartNew(
                 () =>
                 {
+                    m_Diagnostics.Log(
+                        LevelToLog.Info,
+                        Resources.Log_Messages_SymbolIndexer_StoppingProcessing);
+
                     if (!clearCurrentQueue && !m_Queue.IsEmpty)
                     {
                         lock (m_Lock)

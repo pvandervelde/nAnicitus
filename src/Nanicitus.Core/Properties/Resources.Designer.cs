@@ -68,5 +68,185 @@ namespace Nanicitus.Core.Properties {
                 return ResourceManager.GetString("Exceptions_Messages_MissingConfigurationValue_WithKey", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &lt;No response&gt;.
+        /// </summary>
+        internal static string Log_Messages_ExternalTool_NoResponse {
+            get {
+                return ResourceManager.GetString("Log_Messages_ExternalTool_NoResponse", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Discovered new symbol package at: {0}.
+        /// </summary>
+        internal static string Log_Messages_FileWatcherBasedPackageUploader_DiscoveredFile_WithFilePath {
+            get {
+                return ResourceManager.GetString("Log_Messages_FileWatcherBasedPackageUploader_DiscoveredFile_WithFilePath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Symbol package discovery - Disabled.
+        /// </summary>
+        internal static string Log_Messages_FileWatcherBasedPackageUploader_PackageDiscovery_Disabled {
+            get {
+                return ResourceManager.GetString("Log_Messages_FileWatcherBasedPackageUploader_PackageDiscovery_Disabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Symbol package discovery - Enabled.
+        /// </summary>
+        internal static string Log_Messages_FileWatcherBasedPackageUploader_PackageDiscovery_Enabled {
+            get {
+                return ResourceManager.GetString("Log_Messages_FileWatcherBasedPackageUploader_PackageDiscovery_Enabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to create the processed packages directory. Exception was: {0}.
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_CreateProcessedPackagePathFailed_WithException {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_CreateProcessedPackagePathFailed_WithException", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Indexing PDB file: {0}. Package ID: {1}; Version: {2}..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_IndexingSymbol_WithPackageDetails {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_IndexingSymbol_WithPackageDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to New item in symbol queue. Starting processing thread..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_NewItemInQueue_StartingThread {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_NewItemInQueue_StartingThread", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to delete the original symbol package file (ID: {1}; Version: {2}). Exception was: {0}.
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_PackageDeleteFailed_WithExceptionAndPackageDetails {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_PackageDeleteFailed_WithExceptionAndPackageDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to move the processed package to the storage directory (ID: {1}; Version: {2}). Exception was: {0}.
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_PackageMoveFailed_WithExceptionAndPackageDetails {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_PackageMoveFailed_WithExceptionAndPackageDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed while processing package (ID: {1}; Version: {2}). Exception was: {0}.
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_ProcessingFailed_WithExceptionAndPackageDetails {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_ProcessingFailed_WithExceptionAndPackageDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Processing package. ID: {0}; Version: {1}.
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_ProcessingPackage_WithIdAndVersion {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_ProcessingPackage_WithIdAndVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Symbol queue empty. Stopping symbol processing..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_QueueEmpty {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_QueueEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Uploading of source file complete. Original path: {0}. Source server path: {1}. Package ID: {2}; Version: {3}..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_SourceUploadComplete_WithPackageDetails {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_SourceUploadComplete_WithPackageDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stopping processing..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_StoppingProcessing {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_StoppingProcessing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Completed indexing of PDB file. PdbStr output: {0}.
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_SymbolIndexingComplete_PdbStrOutput {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_SymbolIndexingComplete_PdbStrOutput", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Completed indexing of PDB file: {0}. Package ID: {1}; Version: {2}..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_SymbolIndexingComplete_WithPackageDetails {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_SymbolIndexingComplete_WithPackageDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Upload of symbol complete for PDB file: {0}. Package ID: {1}; Version: {2}..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_SymbolUploadComplete_WithPackageDetails {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_SymbolUploadComplete_WithPackageDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Uploading source file to source server. Original path: {0}. Source server path: {1}. Package ID: {2}; Version: {3}..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_UploadingSources_WithPackageDetails {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_UploadingSources_WithPackageDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Upload of symbols complete. SymStore output: {0}.
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_UploadingSymbols_SymStoreOutput {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_UploadingSymbols_SymStoreOutput", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Uploading symbols for PDB file: {0}. Package ID: {1}; Version: {2}. .
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_UploadingSymbols_WithPackageDetails {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_UploadingSymbols_WithPackageDetails", resourceCulture);
+            }
+        }
     }
 }

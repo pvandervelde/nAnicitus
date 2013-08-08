@@ -120,4 +120,64 @@
   <data name="Exceptions_Messages_MissingConfigurationValue_WithKey" xml:space="preserve">
     <value>A required configuration value is missing. The key for the missing configuration value is: {0}</value>
   </data>
+  <data name="Log_Messages_ExternalTool_NoResponse" xml:space="preserve">
+    <value>&lt;No response&gt;</value>
+  </data>
+  <data name="Log_Messages_FileWatcherBasedPackageUploader_DiscoveredFile_WithFilePath" xml:space="preserve">
+    <value>Discovered new symbol package at: {0}</value>
+  </data>
+  <data name="Log_Messages_FileWatcherBasedPackageUploader_PackageDiscovery_Disabled" xml:space="preserve">
+    <value>Symbol package discovery - Disabled</value>
+  </data>
+  <data name="Log_Messages_FileWatcherBasedPackageUploader_PackageDiscovery_Enabled" xml:space="preserve">
+    <value>Symbol package discovery - Enabled</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_CreateProcessedPackagePathFailed_WithException" xml:space="preserve">
+    <value>Failed to create the processed packages directory. Exception was: {0}</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_IndexingSymbol_WithPackageDetails" xml:space="preserve">
+    <value>Indexing PDB file: {0}. Package ID: {1}; Version: {2}.</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_NewItemInQueue_StartingThread" xml:space="preserve">
+    <value>New item in symbol queue. Starting processing thread.</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_PackageDeleteFailed_WithExceptionAndPackageDetails" xml:space="preserve">
+    <value>Failed to delete the original symbol package file (ID: {1}; Version: {2}). Exception was: {0}</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_PackageMoveFailed_WithExceptionAndPackageDetails" xml:space="preserve">
+    <value>Failed to move the processed package to the storage directory (ID: {1}; Version: {2}). Exception was: {0}</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_ProcessingFailed_WithExceptionAndPackageDetails" xml:space="preserve">
+    <value>Failed while processing package (ID: {1}; Version: {2}). Exception was: {0}</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_ProcessingPackage_WithIdAndVersion" xml:space="preserve">
+    <value>Processing package. ID: {0}; Version: {1}</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_QueueEmpty" xml:space="preserve">
+    <value>Symbol queue empty. Stopping symbol processing.</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_SourceUploadComplete_WithPackageDetails" xml:space="preserve">
+    <value>Uploading of source file complete. Original path: {0}. Source server path: {1}. Package ID: {2}; Version: {3}.</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_StoppingProcessing" xml:space="preserve">
+    <value>Stopping processing.</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_SymbolIndexingComplete_PdbStrOutput" xml:space="preserve">
+    <value>Completed indexing of PDB file. PdbStr output: {0}</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_SymbolIndexingComplete_WithPackageDetails" xml:space="preserve">
+    <value>Completed indexing of PDB file: {0}. Package ID: {1}; Version: {2}.</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_SymbolUploadComplete_WithPackageDetails" xml:space="preserve">
+    <value>Upload of symbol complete for PDB file: {0}. Package ID: {1}; Version: {2}.</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_UploadingSources_WithPackageDetails" xml:space="preserve">
+    <value>Uploading source file to source server. Original path: {0}. Source server path: {1}. Package ID: {2}; Version: {3}.</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_UploadingSymbols_SymStoreOutput" xml:space="preserve">
+    <value>Upload of symbols complete. SymStore output: {0}</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_UploadingSymbols_WithPackageDetails" xml:space="preserve">
+    <value>Uploading symbols for PDB file: {0}. Package ID: {1}; Version: {2}. </value>
+  </data>
 </root>

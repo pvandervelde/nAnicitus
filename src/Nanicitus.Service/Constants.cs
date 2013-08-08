@@ -4,7 +4,7 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
-namespace Nanicitus.Core
+namespace Nanicitus.Service
 {
     /// <summary>
     /// Defines the constants for the current assembly.
