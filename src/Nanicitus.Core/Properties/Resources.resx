@@ -132,14 +132,23 @@
   <data name="Log_Messages_FileWatcherBasedPackageUploader_PackageDiscovery_Enabled" xml:space="preserve">
     <value>Symbol package discovery - Enabled</value>
   </data>
+  <data name="Log_Messages_SymbolIndexer_CleaningUpWorker" xml:space="preserve">
+    <value>Cleaning up worker thread.</value>
+  </data>
   <data name="Log_Messages_SymbolIndexer_CreateProcessedPackagePathFailed_WithException" xml:space="preserve">
     <value>Failed to create the processed packages directory. Exception was: {0}</value>
   </data>
   <data name="Log_Messages_SymbolIndexer_IndexingSymbol_WithPackageDetails" xml:space="preserve">
     <value>Indexing PDB file: {0}. Package ID: {1}; Version: {2}.</value>
   </data>
+  <data name="Log_Messages_SymbolIndexer_NewItemInQueue_ProcessingNotStarted" xml:space="preserve">
+    <value>A new symbol package was added to the queue, but the processing of packages is turned off. Package will not be processed.</value>
+  </data>
   <data name="Log_Messages_SymbolIndexer_NewItemInQueue_StartingThread" xml:space="preserve">
     <value>New item in symbol queue. Starting processing thread.</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_NewItemInQueue_WorkerAlreadyExists" xml:space="preserve">
+    <value>A new symbol package was added to the queue. The processing thread is already running. Package should be processed shortly.</value>
   </data>
   <data name="Log_Messages_SymbolIndexer_PackageDeleteFailed_WithExceptionAndPackageDetails" xml:space="preserve">
     <value>Failed to delete the original symbol package file (ID: {1}; Version: {2}). Exception was: {0}</value>

@@ -106,6 +106,15 @@ namespace Nanicitus.Core.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cleaning up worker thread..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_CleaningUpWorker {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_CleaningUpWorker", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed to create the processed packages directory. Exception was: {0}.
         /// </summary>
         internal static string Log_Messages_SymbolIndexer_CreateProcessedPackagePathFailed_WithException {
@@ -124,11 +133,29 @@ namespace Nanicitus.Core.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A new symbol package was added to the queue, but the processing of packages is turned off. Package will not be processed..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_NewItemInQueue_ProcessingNotStarted {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_NewItemInQueue_ProcessingNotStarted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to New item in symbol queue. Starting processing thread..
         /// </summary>
         internal static string Log_Messages_SymbolIndexer_NewItemInQueue_StartingThread {
             get {
                 return ResourceManager.GetString("Log_Messages_SymbolIndexer_NewItemInQueue_StartingThread", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A new symbol package was added to the queue. The processing thread is already running. Package should be processed shortly..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_NewItemInQueue_WorkerAlreadyExists {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_NewItemInQueue_WorkerAlreadyExists", resourceCulture);
             }
         }
         

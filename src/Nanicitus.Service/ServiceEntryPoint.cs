@@ -5,7 +5,11 @@
 //-----------------------------------------------------------------------
 
 using Autofac;
+using log4net.Core;
 using Nanicitus.Core;
+using Nanicitus.Service.Properties;
+using Nuclei.Diagnostics;
+using Nuclei.Diagnostics.Logging;
 
 namespace Nanicitus.Service
 {
@@ -35,6 +39,11 @@ namespace Nanicitus.Service
         private IUploadPackages m_Uploader;
 
         /// <summary>
+        /// The object that provides the diagnostics methods for the application.
+        /// </summary>
+        private SystemDiagnostics m_Diagnostics;
+
+        /// <summary>
         /// When implemented in a derived class, executes when a Start command is sent
         /// to the service by the Service Control Manager (SCM) or when the operating
         /// system starts (for a service that starts automatically). Specifies actions
@@ -52,6 +61,11 @@ namespace Nanicitus.Service
                 m_Container = DependencyInjection.CreateContainer();
                 m_Uploader = m_Container.Resolve<IUploadPackages>();
                 m_Indexer = m_Container.Resolve<IIndexSymbols>();
+                m_Diagnostics = m_Container.Resolve<SystemDiagnostics>();
+
+                m_Diagnostics.Log(
+                    LevelToLog.Info,
+                    Resources.Log_Messages_ServiceEntryPoint_StartingService);
 
                 m_Indexer.Start();
                 m_Uploader.EnableUpload();
@@ -67,6 +81,13 @@ namespace Nanicitus.Service
         {
             lock (m_Lock)
             {
+                if (m_Diagnostics != null)
+                {
+                    m_Diagnostics.Log(
+                        LevelToLog.Info,
+                        Resources.Log_Messages_ServiceEntryPoint_StoppingService);
+                }
+
                 if (m_Uploader != null)
                 {
                     m_Uploader.DisableUpload();
@@ -84,6 +105,13 @@ namespace Nanicitus.Service
                 {
                     m_Container.Dispose();
                     m_Container = null;
+                }
+
+                if (m_Diagnostics != null)
+                {
+                    m_Diagnostics.Log(
+                        LevelToLog.Info,
+                        Resources.Log_Messages_ServiceEntryPoint_ServiceStopped);
                 }
             }
         }

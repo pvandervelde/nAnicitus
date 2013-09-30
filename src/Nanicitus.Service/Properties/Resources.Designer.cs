@@ -61,6 +61,33 @@ namespace Nanicitus.Service.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Service shut down complete..
+        /// </summary>
+        internal static string Log_Messages_ServiceEntryPoint_ServiceStopped {
+            get {
+                return ResourceManager.GetString("Log_Messages_ServiceEntryPoint_ServiceStopped", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Starting service ....
+        /// </summary>
+        internal static string Log_Messages_ServiceEntryPoint_StartingService {
+            get {
+                return ResourceManager.GetString("Log_Messages_ServiceEntryPoint_StartingService", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stopping service ....
+        /// </summary>
+        internal static string Log_Messages_ServiceEntryPoint_StoppingService {
+            get {
+                return ResourceManager.GetString("Log_Messages_ServiceEntryPoint_StoppingService", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Provides a gateway for adding and updating symbols and indexed source..
         /// </summary>
         internal static string Service_Description {

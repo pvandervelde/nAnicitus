@@ -254,11 +254,19 @@ namespace Nanicitus.Core
             {
                 if (!m_IsStarted)
                 {
+                    m_Diagnostics.Log(
+                        LevelToLog.Trace,
+                        Resources.Log_Messages_SymbolIndexer_NewItemInQueue_ProcessingNotStarted);
+
                     return;
                 }
 
                 if (m_Worker != null)
                 {
+                    m_Diagnostics.Log(
+                        LevelToLog.Trace,
+                        Resources.Log_Messages_SymbolIndexer_NewItemInQueue_WorkerAlreadyExists);
+
                     return;
                 }
 
@@ -652,7 +660,7 @@ namespace Nanicitus.Core
 
                     if (worker != null)
                     {
-                        m_Worker.Wait();
+                        worker.Wait();
                     }
 
                     CleanUpWorkerTask();
@@ -665,6 +673,10 @@ namespace Nanicitus.Core
         {
             lock (m_Lock)
             {
+                m_Diagnostics.Log(
+                    LevelToLog.Trace,
+                    Resources.Log_Messages_SymbolIndexer_CleaningUpWorker);
+
                 m_CancellationSource = null;
                 m_Worker = null;
             }
