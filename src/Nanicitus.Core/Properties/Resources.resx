@@ -156,6 +156,9 @@
   <data name="Log_Messages_SymbolIndexer_PackageMoveFailed_WithExceptionAndPackageDetails" xml:space="preserve">
     <value>Failed to move the processed package to the storage directory (ID: {1}; Version: {2}). Exception was: {0}</value>
   </data>
+  <data name="Log_Messages_SymbolIndexer_PackageNotDefined" xml:space="preserve">
+    <value>A package was pushed to the queue but a null reference was pulled off the queue.</value>
+  </data>
   <data name="Log_Messages_SymbolIndexer_ProcessingFailed_WithExceptionAndPackageDetails" xml:space="preserve">
     <value>Failed while processing package (ID: {1}; Version: {2}). Exception was: {0}</value>
   </data>
@@ -167,6 +170,9 @@
   </data>
   <data name="Log_Messages_SymbolIndexer_SourceUploadComplete_WithPackageDetails" xml:space="preserve">
     <value>Uploading of source file complete. Original path: {0}. Source server path: {1}. Package ID: {2}; Version: {3}.</value>
+  </data>
+  <data name="Log_Messages_SymbolIndexer_StartingSymbolProcessing" xml:space="preserve">
+    <value>Starting symbol processing.</value>
   </data>
   <data name="Log_Messages_SymbolIndexer_StoppingProcessing" xml:space="preserve">
     <value>Stopping processing.</value>

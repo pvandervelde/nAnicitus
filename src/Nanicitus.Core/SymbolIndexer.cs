@@ -296,6 +296,10 @@ namespace Nanicitus.Core
 
         private void ProcessSymbols(CancellationToken token)
         {
+            m_Diagnostics.Log(
+                LevelToLog.Trace,
+                Resources.Log_Messages_SymbolIndexer_StartingSymbolProcessing);
+
             while (!token.IsCancellationRequested)
             {
                 if (m_Queue.IsEmpty)
@@ -310,6 +314,10 @@ namespace Nanicitus.Core
                 var packageFile = m_Queue.Dequeue();
                 if (packageFile == null)
                 {
+                    m_Diagnostics.Log(
+                        LevelToLog.Trace,
+                        Resources.Log_Messages_SymbolIndexer_PackageNotDefined);
+
                     continue;
                 }
 

@@ -178,6 +178,15 @@ namespace Nanicitus.Core.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A package was pushed to the queue but a null reference was pulled off the queue..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_PackageNotDefined {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_PackageNotDefined", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed while processing package (ID: {1}; Version: {2}). Exception was: {0}.
         /// </summary>
         internal static string Log_Messages_SymbolIndexer_ProcessingFailed_WithExceptionAndPackageDetails {
@@ -210,6 +219,15 @@ namespace Nanicitus.Core.Properties {
         internal static string Log_Messages_SymbolIndexer_SourceUploadComplete_WithPackageDetails {
             get {
                 return ResourceManager.GetString("Log_Messages_SymbolIndexer_SourceUploadComplete_WithPackageDetails", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Starting symbol processing..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_StartingSymbolProcessing {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_StartingSymbolProcessing", resourceCulture);
             }
         }
         
