@@ -115,15 +115,6 @@ namespace Nanicitus.Core.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Failed to create the processed packages directory. Exception was: {0}.
-        /// </summary>
-        internal static string Log_Messages_SymbolIndexer_CreateProcessedPackagePathFailed_WithException {
-            get {
-                return ResourceManager.GetString("Log_Messages_SymbolIndexer_CreateProcessedPackagePathFailed_WithException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Indexing PDB file: {0}. Package ID: {1}; Version: {2}..
         /// </summary>
         internal static string Log_Messages_SymbolIndexer_IndexingSymbol_WithPackageDetails {
@@ -201,6 +192,15 @@ namespace Nanicitus.Core.Properties {
         internal static string Log_Messages_SymbolIndexer_ProcessingPackage_WithIdAndVersion {
             get {
                 return ResourceManager.GetString("Log_Messages_SymbolIndexer_ProcessingPackage_WithIdAndVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failure while processing packages. Error was: {0}..
+        /// </summary>
+        internal static string Log_Messages_SymbolIndexer_ProcessSymbolsFailed_WithException {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolIndexer_ProcessSymbolsFailed_WithException", resourceCulture);
             }
         }
         

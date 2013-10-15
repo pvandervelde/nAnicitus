@@ -296,117 +296,111 @@ namespace Nanicitus.Core
 
         private void ProcessSymbols(CancellationToken token)
         {
-            m_Diagnostics.Log(
-                LevelToLog.Trace,
-                Resources.Log_Messages_SymbolIndexer_StartingSymbolProcessing);
-
-            while (!token.IsCancellationRequested)
+            try
             {
-                if (m_Queue.IsEmpty)
+                m_Diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_StartingSymbolProcessing);
+
+                while (!token.IsCancellationRequested)
                 {
+                    if (m_Queue.IsEmpty)
+                    {
+                        m_Diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_QueueEmpty);
+                        break;
+                    }
+
+                    var packageFile = m_Queue.Dequeue();
+                    if (packageFile == null)
+                    {
+                        m_Diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_PackageNotDefined);
+                        continue;
+                    }
+
+                    var package = new ZipPackage(packageFile);
+                    var project = package.Id;
+                    var version = package.Version.Version;
+
                     m_Diagnostics.Log(
-                        LevelToLog.Trace, 
-                        Resources.Log_Messages_SymbolIndexer_QueueEmpty);
-
-                    break;
-                }
-
-                var packageFile = m_Queue.Dequeue();
-                if (packageFile == null)
-                {
-                    m_Diagnostics.Log(
-                        LevelToLog.Trace,
-                        Resources.Log_Messages_SymbolIndexer_PackageNotDefined);
-
-                    continue;
-                }
-
-                var package = new ZipPackage(packageFile);
-                var project = package.Id;
-                var version = package.Version.Version;
-
-                m_Diagnostics.Log(
-                    LevelToLog.Info, 
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        Resources.Log_Messages_SymbolIndexer_ProcessingPackage_WithIdAndVersion,
-                        project,
-                        version));
-
-                // Unpack package file in temp location
-                var unpackLocation = Unpack(packageFile, project, version);
-                try
-                {
-                    IndexSymbols(unpackLocation, project, version);
-                    UploadSources(unpackLocation, project, version);
-                    UploadSymbols(unpackLocation, project, version);
-                }
-                catch (Exception e)
-                {
-                    m_Diagnostics.Log(
-                        LevelToLog.Error,
+                        LevelToLog.Info,
                         string.Format(
                             CultureInfo.InvariantCulture,
-                            Resources.Log_Messages_SymbolIndexer_ProcessingFailed_WithExceptionAndPackageDetails,
-                            e,
+                            Resources.Log_Messages_SymbolIndexer_ProcessingPackage_WithIdAndVersion,
                             project,
                             version));
-                }
-                finally
-                {
+
+                    // Unpack package file in temp location
+                    var unpackLocation = Unpack(packageFile, project, version);
                     try
                     {
-                        Directory.Delete(unpackLocation, true);
+                        IndexSymbols(unpackLocation, project, version);
+                        UploadSources(unpackLocation, project, version);
+                        UploadSymbols(unpackLocation, project, version);
                     }
-                    catch (IOException e)
+                    catch (Exception e)
                     {
                         m_Diagnostics.Log(
                             LevelToLog.Error,
                             string.Format(
                                 CultureInfo.InvariantCulture,
-                                Resources.Log_Messages_SymbolIndexer_PackageDeleteFailed_WithExceptionAndPackageDetails,
+                                Resources.Log_Messages_SymbolIndexer_ProcessingFailed_WithExceptionAndPackageDetails,
                                 e,
                                 project,
                                 version));
                     }
-
-                    try
+                    finally
                     {
-                        if (!Directory.Exists(m_ProcessedPackagesPath))
+                        try
                         {
-                            try
+                            Directory.Delete(unpackLocation, true);
+                        }
+                        catch (IOException e)
+                        {
+                            m_Diagnostics.Log(
+                                LevelToLog.Error,
+                                string.Format(
+                                    CultureInfo.InvariantCulture,
+                                    Resources.Log_Messages_SymbolIndexer_PackageDeleteFailed_WithExceptionAndPackageDetails,
+                                    e,
+                                    project,
+                                    version));
+                        }
+
+                        try
+                        {
+                            if (!Directory.Exists(m_ProcessedPackagesPath))
                             {
                                 Directory.CreateDirectory(m_ProcessedPackagesPath);
                             }
-                            catch (IOException e)
-                            {
-                                m_Diagnostics.Log(
-                                    LevelToLog.Error,
-                                    string.Format(
-                                        CultureInfo.InvariantCulture,
-                                        Resources.Log_Messages_SymbolIndexer_CreateProcessedPackagePathFailed_WithException,
-                                        e));
-                            }
-                        }
 
-                        var newPath = Path.Combine(m_ProcessedPackagesPath, Path.GetFileName(packageFile));
-                        File.Move(packageFile, newPath);
-                    }
-                    catch (IOException e)
-                    {
-                        m_Diagnostics.Log(
-                            LevelToLog.Error,
-                            string.Format(
-                                CultureInfo.InvariantCulture,
-                                Resources.Log_Messages_SymbolIndexer_PackageMoveFailed_WithExceptionAndPackageDetails,
-                                e,
-                                project,
-                                version));
+                            var newPath = Path.Combine(m_ProcessedPackagesPath, Path.GetFileName(packageFile));
+                            File.Move(packageFile, newPath);
+                        }
+                        catch (IOException e)
+                        {
+                            m_Diagnostics.Log(
+                                LevelToLog.Error,
+                                string.Format(
+                                    CultureInfo.InvariantCulture,
+                                    Resources.Log_Messages_SymbolIndexer_PackageMoveFailed_WithExceptionAndPackageDetails,
+                                    e,
+                                    project,
+                                    version));
+                        }
                     }
                 }
             }
-
-            CleanUpWorkerTask();
+            catch (Exception e)
+            {
+                m_Diagnostics.Log(
+                    LevelToLog.Error,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_ProcessSymbolsFailed_WithException,
+                        e));
+            }
+            finally
+            {
+                CleanUpWorkerTask();
+            }
         }
 
         private string Unpack(string packageFile, string project, Version version)
