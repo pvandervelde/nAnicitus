@@ -9,11 +9,11 @@ Besides handling the the access to the symbol server nAnicitus also copies the s
 * Install [debugging tools for windows](http://msdn.microsoft.com/en-us/library/windows/hardware/gg463009.aspx). Make sure to install the complete set so that you get the symbol server tools.
 * Install nAnicitus from the zip archive, which is available from the [releases page](https://github.com/pvandervelde/nAnicitus/releases).
 * Update the configuration file with the paths to:
- * The debugging tools directory (e.g. `c:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64`). This path may be left out if it is in the default location (as given here).
- * The UNC path to the source index directory (e.g. `\\MyServer\sources`).
- * The UNC path to the symbols index directory (e.g. `\\MyServer\symbols`).
- * The directory where the NuGet symbol packages will be dropped after they are processed.
- * The directory where the NuGet symbol packages can be uploaded.
+ * **DebuggingToolsDirectory:** The debugging tools directory (e.g. `c:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64`). This path may be left out if it is in the default location (as given here).
+ * **SourceIndexUncPath:** The UNC path to the directory where the indexed sources will be placed (e.g. `\\MyServer\sources`).
+ * **SymbolsIndexUncPath:** The UNC path to the directory where the indexed symbols (i.e. PDBs) will be placed (e.g. `\\MyServer\symbols`).
+ * **ProcessedPackagesPath:** The directory where the NuGet symbol packages will be dropped after they are processed. The NuGet symbol packages are saved in this directory so that it is possible to reprocess the packages if desired at a later stage.
+ * **UploadPath:** The directory where the NuGet symbol packages are placed for nAnicitus to process.
 * To install the application as a windows service, open a command line window with administrative permissions, navigate to the nAnicitus install directory and execute the following command:
 
         Nanicitus.Service install
@@ -31,6 +31,17 @@ While running nAnicitus will continuously monitor the upload directory for new f
 * The source files are copied to the source UNC path.
 * The PDB files are pushed to the symbol UNC path via SymStore.
 * The symbol package is moved to the processed package directory.
+
+During operation nAnicitus writes entries to a log file which contains information about all the steps taken to process a NuGet symbol package. The configuration file contains two settings that control the amount of information written to the log file and the location of the log file. These two settings are:
+
+* **DefaultLogLevel:** The level of the log entries that should be written to the log file. Allowable log levels are:
+ * Trace
+ * Debug
+ * Info
+ * Warn
+ * Error
+ * Fatal
+* **LogPath:** Defines the location of the log file. If no value is provided for this setting then the location will be: `C:\ProgramData\nAnicitus\Nanicitus.Service\0.1\logs`.
 
 
 # How to build
