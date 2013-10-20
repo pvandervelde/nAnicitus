@@ -44,11 +44,16 @@
 <li>Update the configuration file with the paths to:
 
 <ul>
-<li>The debugging tools directory (e.g. <code>c:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64</code>). This path may be left out if it is in the default location (as given here).</li>
-<li>The UNC path to the source index directory (e.g. <code>\\MyServer\sources</code>).</li>
-<li>The UNC path to the symbols index directory (e.g. <code>\\MyServer\symbols</code>).</li>
-<li>The directory where the NuGet symbol packages will be dropped after they are processed.</li>
-<li>The directory where the NuGet symbol packages can be uploaded.</li>
+<li>
+<strong>DebuggingToolsDirectory:</strong> The debugging tools directory (e.g. <code>c:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64</code>). This path may be left out if it is in the default location (as given here).</li>
+<li>
+<strong>SourceIndexUncPath:</strong> The UNC path to the directory where the indexed sources will be placed (e.g. <code>\\MyServer\sources</code>).</li>
+<li>
+<strong>SymbolsIndexUncPath:</strong> The UNC path to the directory where the indexed symbols (i.e. PDBs) will be placed (e.g. <code>\\MyServer\symbols</code>).</li>
+<li>
+<strong>ProcessedPackagesPath:</strong> The directory where the NuGet symbol packages will be dropped after they are processed. The NuGet symbol packages are saved in this directory so that it is possible to reprocess the packages if desired at a later stage.</li>
+<li>
+<strong>UploadPath:</strong> The directory where the NuGet symbol packages are placed for nAnicitus to process.</li>
 </ul>
 </li>
 <li>
@@ -71,7 +76,24 @@
 <li>The source files are copied to the source UNC path.</li>
 <li>The PDB files are pushed to the symbol UNC path via SymStore.</li>
 <li>The symbol package is moved to the processed package directory.</li>
-</ol><h1>
+</ol><p>During operation nAnicitus writes entries to a log file which contains information about all the steps taken to process a NuGet symbol package. The configuration file contains two settings that control the amount of information written to the log file and the location of the log file. These two settings are:</p>
+
+<ul>
+<li>
+<strong>DefaultLogLevel:</strong> The level of the log entries that should be written to the log file. Allowable log levels are:
+
+<ul>
+<li>Trace</li>
+<li>Debug</li>
+<li>Info</li>
+<li>Warn</li>
+<li>Error</li>
+<li>Fatal</li>
+</ul>
+</li>
+<li>
+<strong>LogPath:</strong> Defines the location of the log file. If no value is provided for this setting then the location will be: <code>C:\ProgramData\nAnicitus\Nanicitus.Service\0.1\logs</code>.</li>
+</ul><h1>
 <a name="how-to-build" class="anchor" href="#how-to-build"><span class="octicon octicon-link"></span></a>How to build</h1>
 
 <p>The solution files are created in Visual Studio 2012 (using .NET 4.5) and the entire project can be build by invoking MsBuild on the nanicitus.integration.msbuild script. This will build the binaries and the ZIP archive. The binaries will be placed in the <code>build\bin\AnyCpu\Release</code> directory and the ZIP archive will be placed in the <code>build\deploy</code> directory.</p>
