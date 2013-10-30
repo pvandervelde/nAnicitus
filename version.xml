@@ -6,8 +6,8 @@
     <PropertyGroup>
         <VersionMajor>0</VersionMajor>
         <VersionMinor>1</VersionMinor>
-        <VersionBuild>2</VersionBuild>
-        <VersionRevision>1</VersionRevision>
+        <VersionBuild>3</VersionBuild>
+        <VersionRevision>0</VersionRevision>
     </PropertyGroup>
     
     <!-- 
