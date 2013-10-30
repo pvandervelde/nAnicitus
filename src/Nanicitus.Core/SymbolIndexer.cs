@@ -315,7 +315,12 @@ namespace Nanicitus.Core
                         continue;
                     }
 
-                    var package = new ZipPackage(packageFile);
+                    var package = LoadSymbolPackage(packageFile);
+                    if (package == null)
+                    {
+                        continue;
+                    }
+
                     var project = package.Id;
                     var version = package.Version.Version;
 
@@ -328,6 +333,7 @@ namespace Nanicitus.Core
                             version));
 
                     // Unpack package file in temp location
+                    var processingWasSuccessful = true;
                     var unpackLocation = Unpack(packageFile, project, version);
                     try
                     {
@@ -337,6 +343,8 @@ namespace Nanicitus.Core
                     }
                     catch (Exception e)
                     {
+                        processingWasSuccessful = false;
+
                         m_Diagnostics.Log(
                             LevelToLog.Error,
                             string.Format(
@@ -364,26 +372,9 @@ namespace Nanicitus.Core
                                     version));
                         }
 
-                        try
+                        if (processingWasSuccessful)
                         {
-                            if (!Directory.Exists(m_ProcessedPackagesPath))
-                            {
-                                Directory.CreateDirectory(m_ProcessedPackagesPath);
-                            }
-
-                            var newPath = Path.Combine(m_ProcessedPackagesPath, Path.GetFileName(packageFile));
-                            File.Move(packageFile, newPath);
-                        }
-                        catch (IOException e)
-                        {
-                            m_Diagnostics.Log(
-                                LevelToLog.Error,
-                                string.Format(
-                                    CultureInfo.InvariantCulture,
-                                    Resources.Log_Messages_SymbolIndexer_PackageMoveFailed_WithExceptionAndPackageDetails,
-                                    e,
-                                    project,
-                                    version));
+                            MarkSymbolsAsProcessed(packageFile, project, version);
                         }
                     }
                 }
@@ -400,6 +391,25 @@ namespace Nanicitus.Core
             finally
             {
                 CleanUpWorkerTask();
+            }
+        }
+
+        private ZipPackage LoadSymbolPackage(string packageFile)
+        {
+            try
+            {
+                return new ZipPackage(packageFile);
+            }
+            catch (Exception e)
+            {
+                m_Diagnostics.Log(
+                    LevelToLog.Error,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException,
+                        e));
+                
+                return null;
             }
         }
 
@@ -620,6 +630,35 @@ namespace Nanicitus.Core
                         CultureInfo.InvariantCulture,
                         Resources.Log_Messages_SymbolIndexer_SymbolUploadComplete_WithPackageDetails,
                         path,
+                        project,
+                        version));
+            }
+        }
+
+        private void MarkSymbolsAsProcessed(string packageFile, string project, Version version)
+        {
+            {
+                Debug.Assert(packageFile != null, "The package file path should not be a null reference.");
+            }
+
+            try
+            {
+                if (!Directory.Exists(m_ProcessedPackagesPath))
+                {
+                    Directory.CreateDirectory(m_ProcessedPackagesPath);
+                }
+
+                var newPath = Path.Combine(m_ProcessedPackagesPath, Path.GetFileName(packageFile));
+                File.Move(packageFile, newPath);
+            }
+            catch (IOException e)
+            {
+                m_Diagnostics.Log(
+                    LevelToLog.Error,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_PackageMoveFailed_WithExceptionAndPackageDetails,
+                        e,
                         project,
                         version));
             }
