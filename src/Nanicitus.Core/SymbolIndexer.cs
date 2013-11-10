@@ -5,6 +5,8 @@
 //-----------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -25,6 +27,12 @@ namespace Nanicitus.Core
     /// </summary>
     internal sealed class SymbolIndexer : IIndexSymbols, IDisposable
     {
+        /// <summary>
+        /// Indicates the maximum number of times the indexer will try to process a package
+        /// before giving up.
+        /// </summary>
+        private const int MaximumNumberOfTimesPackageCanBeProcessed = 3;
+
         private static string CreateUnzipDirectory()
         {
             var assembly = Assembly.GetExecutingAssembly();
@@ -138,6 +146,14 @@ namespace Nanicitus.Core
         /// The object used to lock on.
         /// </summary>
         private readonly object m_Lock = new object();
+
+        /// <summary>
+        /// The collection that holds information about packages that could not be processed because
+        /// the package file was locked when the indexer first tried to access it 
+        /// (see https://github.com/pvandervelde/nAnicitus/issues/1).
+        /// </summary>
+        private readonly Queue<Tuple<string, int>> m_LockedPackages
+            = new Queue<Tuple<string, int>>();
 
         /// <summary>
         /// The queue that stores the location of the non-processed packages.
@@ -302,21 +318,15 @@ namespace Nanicitus.Core
 
                 while (!token.IsCancellationRequested)
                 {
-                    if (m_Queue.IsEmpty)
+                    if (m_Queue.IsEmpty && (m_LockedPackages.Count == 0))
                     {
                         m_Diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_QueueEmpty);
                         break;
                     }
 
-                    var packageFile = m_Queue.Dequeue();
-                    if (packageFile == null)
-                    {
-                        m_Diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_PackageNotDefined);
-                        continue;
-                    }
-
-                    var package = LoadSymbolPackage(packageFile);
-                    if (package == null)
+                    string packageFile;
+                    ZipPackage package;
+                    if (!LoadPackage(out packageFile, out package))
                     {
                         continue;
                     }
@@ -394,7 +404,48 @@ namespace Nanicitus.Core
             }
         }
 
-        private ZipPackage LoadSymbolPackage(string packageFile)
+        private bool LoadPackage(out string packageFile, out ZipPackage package)
+        {
+            packageFile = null;
+            package = null;
+
+            int processCount = 0;
+            if (!m_Queue.IsEmpty)
+            {
+                packageFile = m_Queue.Dequeue();
+            }
+            else
+            {
+                if (m_LockedPackages.Count > 0)
+                {
+                    var pair = m_LockedPackages.Dequeue();
+                    packageFile = pair.Item1;
+                    processCount = pair.Item2;
+                }
+            }
+
+            if (packageFile == null)
+            {
+                m_Diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_PackageNotDefined);
+                return false;
+            }
+
+            if (processCount > MaximumNumberOfTimesPackageCanBeProcessed)
+            {
+                m_Diagnostics.Log(
+                    LevelToLog.Warn,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_PackageLoadCountBeyondMaximum_WithPackagePath,
+                        packageFile));
+                return false;
+            }
+
+            package = LoadSymbolPackage(packageFile, processCount);
+            return package != null;
+        }
+
+        private ZipPackage LoadSymbolPackage(string packageFile, int processCount)
         {
             try
             {
@@ -408,6 +459,8 @@ namespace Nanicitus.Core
                         CultureInfo.InvariantCulture,
                         Resources.Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException,
                         e));
+
+                m_LockedPackages.Enqueue(new Tuple<string, int>(packageFile, ++processCount));
                 
                 return null;
             }

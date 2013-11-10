@@ -1,20 +1,24 @@
 <StyleCopSettings Version="105">
   <GlobalSettings>
     <CollectionProperty Name="RecognizedWords">
+      <Value>Anicitus</Value>
       <Value>api</Value>
       <Value>aspx</Value>
       <Value>bitness</Value>
       <Value>clrteam</Value>
       <Value>eg</Value>
       <Value>fwlink</Value>
+      <Value>github</Value>
       <Value>int</Value>
       <Value>jayway</Value>
       <Value>msdn</Value>
       <Value>msiexec</Value>
+      <Value>nAnicitus</Value>
       <Value>nullables</Value>
       <Value>pdbstr</Value>
       <Value>performant</Value>
       <Value>Powershell</Value>
+      <Value>pvandervelde</Value>
       <Value>queryables</Value>
       <Value>rmbyers</Value>
       <Value>srctool</Value>

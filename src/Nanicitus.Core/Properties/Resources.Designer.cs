@@ -106,6 +106,15 @@ namespace Nanicitus.Core.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The package could not be processed. Package path is: {0}..
+        /// </summary>
+        internal static string Log_Messages_PackageLoadCountBeyondMaximum_WithPackagePath {
+            get {
+                return ResourceManager.GetString("Log_Messages_PackageLoadCountBeyondMaximum_WithPackagePath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Cleaning up worker thread..
         /// </summary>
         internal static string Log_Messages_SymbolIndexer_CleaningUpWorker {

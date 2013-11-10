@@ -198,4 +198,7 @@
   <data name="Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException" xml:space="preserve">
     <value>Loading of package failed. Error was: {0}.</value>
   </data>
+  <data name="Log_Messages_PackageLoadCountBeyondMaximum_WithPackagePath" xml:space="preserve">
+    <value>The package could not be processed. Package path is: {0}.</value>
+  </data>
 </root>
