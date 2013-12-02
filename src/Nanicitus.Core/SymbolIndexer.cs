@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Ionic.Zip;
@@ -28,10 +29,66 @@ namespace Nanicitus.Core
     internal sealed class SymbolIndexer : IIndexSymbols, IDisposable
     {
         /// <summary>
+        /// The HResult value that indicates that the file is locked by the operating system.
+        /// </summary>
+        private const uint FileLocked = 0x80070020;
+
+        /// <summary>
+        /// The HResult value that indicates that a portion of the file is locked by the operating 
+        /// system.
+        /// </summary>
+        private const uint PortionOfFileLocked = 0x80070021;
+
+        /// <summary>
         /// Indicates the maximum number of times the indexer will try to process a package
         /// before giving up.
         /// </summary>
         private const int MaximumNumberOfTimesPackageCanBeProcessed = 3;
+
+        /// <summary>
+        /// Indicates the maximum number of times that the process will wait for a locked file before
+        /// giving up and moving on.
+        /// </summary>
+        private const int MaximumNumberOfTimesWaitingForPackageFileLock = 3;
+
+        /// <summary>
+        /// The amount of time the process sleeps when it encounters a file that is locked by the 
+        /// operating system.
+        /// </summary>
+        private const int PackageFileLockSleepTimeInMilliSeconds = 5000;
+
+        /// <summary>
+        /// Returns a value indicating if the file is locked for reading.
+        /// </summary>
+        /// <param name="path">The path of the file.</param>
+        /// <returns>
+        ///     <see langword="true"/> if the file is locked for reading; otherwise <see langword="false" />.
+        /// </returns>
+        /// <remarks>
+        /// Original code here: http://stackoverflow.com/a/14132721/539846.
+        /// </remarks>
+        private static bool IsAvailableForReading(string path)
+        {
+            try
+            {
+                using (File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    // Do nothing. Just want to know if the file is locked.
+                }
+
+                return true;
+            }
+            catch (IOException e)
+            {
+                var errorCode = (uint)Marshal.GetHRForException(e);
+                if (errorCode != FileLocked && errorCode != PortionOfFileLocked)
+                {
+                    throw;
+                }
+
+                return false;
+            }
+        }
 
         private static string CreateUnzipDirectory()
         {
@@ -449,6 +506,13 @@ namespace Nanicitus.Core
         {
             try
             {
+                int waitCount = 0;
+                while ((!IsAvailableForReading(packageFile)) && (waitCount < MaximumNumberOfTimesWaitingForPackageFileLock))
+                {
+                    waitCount++;
+                    Thread.Sleep(PackageFileLockSleepTimeInMilliSeconds);
+                }
+
                 return new ZipPackage(packageFile);
             }
             catch (Exception e)
@@ -461,7 +525,7 @@ namespace Nanicitus.Core
                         e));
 
                 m_LockedPackages.Enqueue(new Tuple<string, int>(packageFile, ++processCount));
-                
+
                 return null;
             }
         }
