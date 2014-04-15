@@ -15,6 +15,7 @@
         <DirBuild>$(DirWorkspace)\build</DirBuild>
         <DirBuildBin>$(DirBuild)\bin\$(PlatformTranslated)\$(Configuration)</DirBuildBin>
         <DirBuildDeploy>$(DirBuild)\deploy</DirBuildDeploy>
+        <DirBuildTemp>$(DirBuild)\temp</DirBuildTemp>
         <DirInstall>$(DirWorkspace)\install</DirInstall>
         <DirInstallArchive>$(DirInstall)\archive</DirInstallArchive>
         
@@ -27,7 +28,7 @@
     <Import Project="$(MsBuildExtensionsPath)\Zip.msbuild"
             Condition="Exists('$(MsBuildExtensionsPath)\Zip.msbuild')"/>
     
-    <Target Name="Run" DependsOnTargets="_DisplayInfo;_BuildPackages">
+    <Target Name="Run" DependsOnTargets="_DisplayInfo;_GatherReleaseNotes;_BuildPackages">
         <!-- Do nothing here -->
     </Target>
     
@@ -37,10 +38,19 @@
     </Target>
     
     <PropertyGroup>
+        <FileTempReleaseNotes>$(DirBuildTemp)\releasenotes_full.md</FileTempReleaseNotes>
+        <FileReleaseNotes>$(DirBuildTemp)\releasenotes.md</FileReleaseNotes>
+    </PropertyGroup>
+    <Target Name="_GatherReleaseNotes" Condition=" '$(GitHubUserName)' != '' AND '$(GitHubToken)' != '' ">
+        <Copy SourceFiles="$(FileTempReleaseNotes)" 
+              DestinationFiles="$(FileReleaseNotes)" />
+    </Target>
+    
+    <PropertyGroup>
         <FileNameArchive>nanicitus.zip</FileNameArchive>
         <FileArchive>$(DirBuildDeploy)\$(FileNameArchive)</FileArchive>
     </PropertyGroup>
-    <Target Name="_BuildPackages" DependsOnTargets="_DisplayInfo">
+    <Target Name="_BuildPackages" DependsOnTargets="_DisplayInfo;_GatherReleaseNotes">
         <MakeDir Directories="$(DirBuildDeploy)" Condition="!Exists('$(DirBuildDeploy)')" />
     
         <ItemGroup Condition="'$(DirBuildBin)' != ''">
@@ -59,6 +69,7 @@
             <ServiceFiles Include="$(DirBuildBin)\NAnicitus.Service.exe" />
             <ServiceFiles Include="$(DirBuildBin)\NAnicitus.Service.exe.config" />
             <ServiceFiles Include="$(DirWorkspace)\LICENSE.md" />
+            <ConsoleFiles Include="$(FileReleaseNotes)" />
         </ItemGroup>
     
         <Message Text="Compressing files" />
