@@ -26,7 +26,7 @@
     
     <!-- Clean -->
     <PropertyGroup>
-        <MsBuildPrepareWorkspace>$(DirWorkspace)\nanicitus.PrepareWorkspace.msbuild</MsBuildPrepareWorkspace>
+        <MsBuildPrepareWorkspace>$(DirWorkspace)\Build.PrepareWorkspace.msbuild</MsBuildPrepareWorkspace>
     </PropertyGroup>
     <Target Name="_PrepareWorkspace" DependsOnTargets="_DisplayInfo">
         <MSBuild Projects="$(MsBuildPrepareWorkspace)" Properties="ShouldClean=$(ShouldClean);ShouldCleanPackages=$(ShouldCleanPackages)" />
@@ -34,7 +34,7 @@
     
     <!-- Build binaries -->
     <PropertyGroup>
-        <MsBuildBuildBinaries>$(DirWorkspace)\nanicitus.Build.Binaries.msbuild</MsBuildBuildBinaries>
+        <MsBuildBuildBinaries>$(DirWorkspace)\Build.Binaries.msbuild</MsBuildBuildBinaries>
     </PropertyGroup>
     <Target Name="_BuildBinaries" DependsOnTargets="_PrepareWorkspace">
         <MSBuild Projects="$(MsBuildBuildBinaries)" Properties="Configuration=Release;Platform=$(Platform)" />
@@ -43,7 +43,7 @@
 
     <!-- Build archives -->
     <PropertyGroup>
-        <MsBuildPackageArchive>$(DirWorkspace)\nanicitus.Package.Archive.msbuild</MsBuildPackageArchive>
+        <MsBuildPackageArchive>$(DirWorkspace)\Build.Package.Archive.msbuild</MsBuildPackageArchive>
     </PropertyGroup>
     <Target Name="_PackageArchive" DependsOnTargets="_BuildBinaries">
         <MSBuild Projects="$(MsBuildPackageArchive)" Properties="Configuration=Deploy;Platform=$(Platform)" />
