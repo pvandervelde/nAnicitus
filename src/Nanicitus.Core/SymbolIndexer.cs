@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -597,7 +598,10 @@ namespace Nanicitus.Core
 
                     // Run SrcTool to list all files in a pdb
                     var filesAsText = Execute(m_SrcToolPath, "-r " + pdbFile);
-                    var files = filesAsText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    var files = filesAsText
+                        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Where(l => !l.Contains("source files are indexed"))
+                        .ToArray();
                     if (files.Length == 0)
                     {
                         continue;
