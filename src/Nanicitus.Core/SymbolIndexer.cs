@@ -702,6 +702,7 @@ namespace Nanicitus.Core
                 }
 
                 File.Copy(sourceFile, destinationFile);
+                File.SetAttributes(destinationFile, FileAttributes.ReadOnly);
 
                 m_Diagnostics.Log(
                     LevelToLog.Info,
