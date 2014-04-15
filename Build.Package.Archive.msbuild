@@ -69,7 +69,7 @@
             <ServiceFiles Include="$(DirBuildBin)\NAnicitus.Service.exe" />
             <ServiceFiles Include="$(DirBuildBin)\NAnicitus.Service.exe.config" />
             <ServiceFiles Include="$(DirWorkspace)\LICENSE.md" />
-            <ConsoleFiles Include="$(FileReleaseNotes)" />
+            <ServiceFiles Include="$(FileReleaseNotes)" />
         </ItemGroup>
     
         <Message Text="Compressing files" />
