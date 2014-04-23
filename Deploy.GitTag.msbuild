@@ -9,6 +9,7 @@
         <DirTools>$(DirWorkspace)\tools</DirTools>
         <DirBuild>$(DirWorkspace)\build</DirBuild>
         <DirBuildTemp>$(DirBuild)\temp</DirBuildTemp>
+        <DirSrc>$(DirWorkspace)\src</DirSrc>
         
         <!-- Version number -->
         <VersionSemantic>0</VersionSemantic>
