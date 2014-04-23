@@ -20,36 +20,21 @@
     
     <Import Project="$(MsBuildExtensionsPath)\FindToolFromPackages.msbuild" 
             Condition="Exists('$(MsBuildExtensionsPath)\FindToolFromPackages.msbuild')" />
-    <Import Project="$(MsBuildExtensionsPath)\GetSemanticVersion.msbuild" 
-            Condition="Exists('$(MsBuildExtensionsPath)\GetSemanticVersion.msbuild')" />
     <Import Project="$(MsBuildExtensionsPath)\NugetRestore.msbuild"
             Condition="Exists('$(MsBuildExtensionsPath)\NugetRestore.msbuild')"/>    
     
-    <Target Name="Run" DependsOnTargets="_DisplayInfo;_RestorePackages;_GetSemanticVersion;_LoadReleaseNotes;_TagRelease;" />
+    <Target Name="Run" DependsOnTargets="_DisplayInfo;_GetSemanticVersion;_LoadReleaseNotes;_TagRelease;" />
     
     <!-- Display info -->
     <Target Name="_DisplayInfo">
         <Message Text="Tagging release ..." />
     </Target>
     
-    <!-- Run Nuget for the global build -->
     <PropertyGroup>
-        <FileNuGetExe>$(DirSrc)\.nuget\NuGet.exe</FileNuGetExe>
-        <PackagesConfig>$([System.IO.Path]::Combine($(DirWorkspace), "packages.config"))</PackagesConfig>
+        <FileSemanticVersion>$(DirBuildTemp)\semantic_version.json</FileSemanticVersion>
     </PropertyGroup>
-    <Target Name="_RestorePackages" DependsOnTargets="_DisplayInfo">
-        <NugetRestore NugetPath="$(FileNuGetExe)" PackageFile="$(PackagesConfig)" PackageDirectory="$(DirPackages)" />
-    </Target>
-    
-    <PropertyGroup>
-        <FileGitVersionExe>GitHubFlowVersion.exe</FileGitVersionExe>
-    </PropertyGroup>
-    <Target Name="_GetSemanticVersion" DependsOnTargets="_DisplayInfo;_RestorePackages">
-        <FindToolFromPackages PackagesDir="$(DirPackages)" FileToLocate="$(FileGitVersionExe)">
-            <Output TaskParameter="Path" PropertyName="PathGitVersionExe" />
-        </FindToolFromPackages>
-        
-        <GetSemanticVersion ExePath="$(PathGitVersionExe)" TempDirectory="$(DirBuildTemp)">
+    <Target Name="_GetSemanticVersion" DependsOnTargets="_DisplayInfo;">
+        <GetSemanticVersion VersionFile="$(FileSemanticVersion)">
             <Output TaskParameter="VersionSemantic" PropertyName="VersionSemantic" />
         </GetSemanticVersion>
     </Target>
@@ -57,7 +42,7 @@
     <PropertyGroup>
         <FileReleaseNotes>$(DirBuildTemp)\releasenotes_short.md</FileReleaseNotes>
     </PropertyGroup>
-    <Target Name="_LoadReleaseNotes" DependsOnTargets="_DisplayInfo;_RestorePackages;_GetSemanticVersion">
+    <Target Name="_LoadReleaseNotes" DependsOnTargets="_DisplayInfo;_GetSemanticVersion">
         <CreateProperty Condition="Exists('$(FileReleaseNotes)')" Value="$([System.IO.File]::ReadAllText('$(FileReleaseNotes)'))">
             <Output TaskParameter="Value" PropertyName="ReleaseNotes" />
         </CreateProperty>
@@ -66,7 +51,7 @@
     <PropertyGroup>
         <ExeGit>$(DirGit)\git.exe</ExeGit>
     </PropertyGroup>
-    <Target Name="_TagRelease" DependsOnTargets="_DisplayInfo;_RestorePackages;_GetSemanticVersion;_LoadReleaseNotes" Condition="Exists('$(DirGit)') AND Exists('$(FileReleaseNotes)')" >
+    <Target Name="_TagRelease" DependsOnTargets="_DisplayInfo;_GetSemanticVersion;_LoadReleaseNotes" Condition="Exists('$(DirGit)') AND Exists('$(FileReleaseNotes)')" >
         <Exec Command="&quot;$(ExeGit)&quot; tag -a -m &quot;$(ReleaseNotes)&quot; &quot;$(VersionSemantic)&quot;"
               WorkingDirectory="$(DirWorkspace)" />
         <Exec Command="&quot;$(ExeGit)&quot; push origin --tags"
