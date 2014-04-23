@@ -41,6 +41,7 @@
     <FileGeneratedAssemblyVersion>$(DirBuildTemp)\AssemblyInfo.VersionNumber.cs</FileGeneratedAssemblyVersion>
     <FileGeneratedAssemblyBuildInfo>$(DirBuildTemp)\AssemblyInfo.BuildInformation.cs</FileGeneratedAssemblyBuildInfo>
     <FileGeneratedLicenses>$(DirBuildTemp)\licenses.xml</FileGeneratedLicenses>
+    <FileGeneratedSemanticVersion>$(DirBuildTemp)\semantic_version.json</FileGeneratedSemanticVersion>
     <!-- Version number -->
     <VersionMajor>0</VersionMajor>
     <VersionMinor>0</VersionMinor>
@@ -58,6 +59,7 @@
   </PropertyGroup>
   <Import Project="$(MsBuildExtensionsPath)\TemplateFile.msbuild" Condition="Exists('$(MsBuildExtensionsPath)\TemplateFile.msbuild')" />
   <Import Project="$(MsBuildExtensionsPath)\FindToolFromPackages.msbuild" Condition="Exists('$(MsBuildExtensionsPath)\FindToolFromPackages.msbuild')" />
+  <Import Project="$(MsBuildExtensionsPath)\CalculateSemanticVersion.msbuild" Condition="Exists('$(MsBuildExtensionsPath)\CalculateSemanticVersion.msbuild')" />
   <Import Project="$(MsBuildExtensionsPath)\GetSemanticVersion.msbuild" Condition="Exists('$(MsBuildExtensionsPath)\GetSemanticVersion.msbuild')" />
   <Import Project="$(MsBuildExtensionsPath)\GitCommitHash.msbuild" Condition="Exists('$(MsBuildExtensionsPath)\GitCommitHash.msbuild')" />
   <Import Project="$(MsBuildExtensionsPath)\PublicKeySignatureFromAssembly.msbuild" Condition="Exists('$(MsBuildExtensionsPath)\PublicKeySignatureFromAssembly.msbuild')" />
@@ -79,6 +81,7 @@
       <GeneratedFiles Include="$(FileGeneratedAssemblyVersion)" />
       <GeneratedFiles Include="$(FileGeneratedAssemblyBuildInfo)" />
       <GeneratedFiles Include="$(FileGeneratedLicenses)" />
+      <GeneratedFiles Include="$(FileGeneratedSemanticVersion)" />
     </ItemGroup>
     <Delete Files="@(GeneratedFiles)" />
   </Target>
@@ -99,7 +102,9 @@
       <Output TaskParameter="Path" PropertyName="PathGitVersionExe" />
     </FindToolFromPackages>
     
-    <GetSemanticVersion ExePath="$(PathGitVersionExe)" TempDirectory="$(DirBuildTemp)">
+    <CalculateSemanticVersion ExePath="$(PathGitVersionExe)" VersionFile="$(FileGeneratedSemanticVersion)" Condition="!Exists('$(FileGeneratedSemanticVersion)')" />
+    
+    <GetSemanticVersion VersionFile="$(FileGeneratedSemanticVersion)">
         <Output TaskParameter="VersionMajor" PropertyName="VersionMajor" />
         <Output TaskParameter="VersionMinor" PropertyName="VersionMinor" />
         <Output TaskParameter="VersionPatch" PropertyName="VersionPatch" />
