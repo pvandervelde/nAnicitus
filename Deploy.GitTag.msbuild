@@ -21,6 +21,8 @@
             Condition="Exists('$(MsBuildExtensionsPath)\FindToolFromPackages.msbuild')" />
     <Import Project="$(MsBuildExtensionsPath)\GetSemanticVersion.msbuild" 
             Condition="Exists('$(MsBuildExtensionsPath)\GetSemanticVersion.msbuild')" />
+    <Import Project="$(MsBuildExtensionsPath)\NugetRestore.msbuild"
+            Condition="Exists('$(MsBuildExtensionsPath)\NugetRestore.msbuild')"/>    
     
     <Target Name="Run" DependsOnTargets="_DisplayInfo;_RestorePackages;_GetSemanticVersion;_LoadReleaseNotes;_TagRelease;" />
     
