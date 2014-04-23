@@ -155,26 +155,54 @@ namespace Nanicitus.Core
             return pdbFiles;
         }
 
-        private static string DetermineBasePath(string sourceLocation, string[] files)
+        private static int NumberOfMatchingCharactersStartingFromTheEnd(string first, string second)
         {
+            var longer = (first.Length > second.Length) ? first : second;
+            var shorter = (longer == first) ? second : first;
+
+            var longerLastCharacterIndex = longer.Length - 1;
+            var shorterLastCharacterIndex = shorter.Length - 1;
+
+            var counter = 0;
+            for (int i = 0; i < shorter.Length; i++)
+            {
+                if (longer[longerLastCharacterIndex - i] != shorter[shorterLastCharacterIndex - i])
+                {
+                    break;
+                }
+
+                counter++;
+            }
+
+            return counter;
+        }
+
+        private static Dictionary<string, string> CalculateRelativePaths(string sourceLocation, IEnumerable<string> files)
+        {
+            var result = new Dictionary<string, string>();
+
+            var sourceFiles = Directory.GetFiles(sourceLocation, "*.*", SearchOption.AllDirectories);
             foreach (var file in files)
             {
                 var fileName = Path.GetFileName(file);
-                var matchingFiles = Directory.GetFiles(sourceLocation, fileName, SearchOption.AllDirectories);
-                if (matchingFiles.Length != 1)
+
+                // The relative path should be the file path relative to the sourceLocation
+                var matchingFiles = sourceFiles
+                    .Where(f => f.Contains(fileName))
+                    .Select(f => f.Substring(sourceLocation.Length).TrimStart(Path.DirectorySeparatorChar))
+                    .OrderByDescending(f => NumberOfMatchingCharactersStartingFromTheEnd(file, f))
+                    .ToList();
+
+                if (matchingFiles.Count == 0)
                 {
                     continue;
                 }
 
-                var storedFile = matchingFiles[0];
-                var relativePath = storedFile.Substring(sourceLocation.Length);
-                relativePath = relativePath.TrimStart(Path.DirectorySeparatorChar);
-
-                var baseDirectory = file.Substring(0, file.Length - relativePath.Length);
-                return baseDirectory;
+                var matchedFile = matchingFiles.First();
+                result.Add(file, matchedFile);
             }
 
-            return null;
+            return result;
         }
 
         private static string BuildSourcePath(string project, string version)
@@ -608,8 +636,8 @@ namespace Nanicitus.Core
                     }
 
                     // Find the base path
-                    var basePath = DetermineBasePath(sourceLocation, files);
-                    if (basePath == null)
+                    var relativePathMap = CalculateRelativePaths(sourceLocation, files);
+                    if (relativePathMap.Count == 0)
                     {
                         continue;
                     }
@@ -617,20 +645,9 @@ namespace Nanicitus.Core
                     // Iterate files. Add path to file in SRCSRV stream
                     foreach (var file in files)
                     {
-                        int index = -1;
-                        if (file.StartsWith(basePath))
+                        if (relativePathMap.ContainsKey(file))
                         {
-                            index = basePath.Length + 1;
-                        }
-                        else if (file.Contains(basePath))
-                        {
-                            index = file.IndexOf(basePath, StringComparison.InvariantCultureIgnoreCase) + basePath.Length + 1;
-                        }
-
-                        if (index >= 0)
-                        {
-                            var relativeFile = file.Replace(basePath, string.Empty);
-                            relativeFile = relativeFile.TrimStart(Path.DirectorySeparatorChar);
+                            var relativeFile = relativePathMap[file];
 
                             writer.Write(file);
                             writer.Write("*");
