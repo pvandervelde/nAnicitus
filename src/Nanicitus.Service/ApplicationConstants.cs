@@ -1,6 +1,7 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright company="NAnicitus">
-//     Copyright 2013 NAnicitus. Licensed under the Apache License, Version 2.0.
+// <copyright company="nAnicitus">
+// Copyright (c) nAnicitus. All rights reserved.
+// Licensed under the Apache License, Version 2.0 license. See LICENCE.md file in the project root for full license information.
 // </copyright>
 //-----------------------------------------------------------------------
 
@@ -14,7 +15,7 @@ namespace Nanicitus.Service
     /// Holds a set of constants that apply to the application.
     /// </summary>
     [Serializable]
-    internal sealed class ApplicationConstants
+    internal static class ApplicationConstants
     {
         /// <summary>
         /// Gets the assembly that called into this assembly.
@@ -42,7 +43,8 @@ namespace Nanicitus.Service
         /// <returns>
         /// The requested attribute.
         /// </returns>
-        private static T GetAttributeFromAssembly<T>() where T : Attribute
+        private static T GetAttributeFromAssembly<T>()
+            where T : Attribute
         {
             var attributes = GetAssembly().GetCustomAttributes(typeof(T), false);
             Debug.Assert(attributes.Length == 1, "There should only be one attribute.");
@@ -57,7 +59,7 @@ namespace Nanicitus.Service
         /// Gets the name of the company.
         /// </summary>
         /// <value>The name of the company.</value>
-        public string CompanyName
+        public static string CompanyName
         {
             get
             {
@@ -70,7 +72,7 @@ namespace Nanicitus.Service
         /// Gets the name of the application.
         /// </summary>
         /// <value>The name of the application.</value>
-        public string ApplicationName
+        public static string ApplicationName
         {
             get
             {
@@ -83,7 +85,7 @@ namespace Nanicitus.Service
         /// Gets the application version.
         /// </summary>
         /// <value>The application version.</value>
-        public Version ApplicationVersion
+        public static Version ApplicationVersion
         {
             get
             {
@@ -100,7 +102,7 @@ namespace Nanicitus.Service
         /// A compatible application version indicates that the current version reads the
         /// configuration files of the compatible application.
         /// </remarks>
-        public Version ApplicationCompatibilityVersion
+        public static Version ApplicationCompatibilityVersion
         {
             get
             {

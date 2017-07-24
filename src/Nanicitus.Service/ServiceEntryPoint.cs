@@ -1,6 +1,7 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright company="NAnicitus">
-//     Copyright 2013 NAnicitus. Licensed under the Apache License, Version 2.0.
+// <copyright company="nAnicitus">
+// Copyright (c) nAnicitus. All rights reserved.
+// Licensed under the Apache License, Version 2.0 license. See LICENCE.md file in the project root for full license information.
 // </copyright>
 //-----------------------------------------------------------------------
 
@@ -21,27 +22,27 @@ namespace Nanicitus.Service
         /// <summary>
         /// The object used to lock on.
         /// </summary>
-        private readonly object m_Lock = new object();
+        private readonly object _lock = new object();
 
         /// <summary>
         /// The IOC container.
         /// </summary>
-        private IContainer m_Container;
+        private IContainer _container;
 
         /// <summary>
         /// The object that handles the indexing of source files.
         /// </summary>
-        private IIndexSymbols m_Indexer;
+        private IIndexSymbols _indexer;
 
         /// <summary>
         /// The object that handles tracking of the new uploads.
         /// </summary>
-        private IUploadPackages m_Uploader;
+        private IUploadPackages _uploader;
 
         /// <summary>
         /// The object that provides the diagnostics methods for the application.
         /// </summary>
-        private SystemDiagnostics m_Diagnostics;
+        private SystemDiagnostics _diagnostics;
 
         /// <summary>
         /// When implemented in a derived class, executes when a Start command is sent
@@ -51,24 +52,24 @@ namespace Nanicitus.Service
         /// </summary>
         public void OnStart()
         {
-            lock (m_Lock)
+            lock (_lock)
             {
-                if ((m_Uploader != null) || (m_Indexer != null) || (m_Container != null))
+                if ((_uploader != null) || (_indexer != null) || (_container != null))
                 {
                     OnStop();
                 }
 
-                m_Container = DependencyInjection.CreateContainer();
-                m_Uploader = m_Container.Resolve<IUploadPackages>();
-                m_Indexer = m_Container.Resolve<IIndexSymbols>();
-                m_Diagnostics = m_Container.Resolve<SystemDiagnostics>();
+                _container = DependencyInjection.CreateContainer();
+                _uploader = _container.Resolve<IUploadPackages>();
+                _indexer = _container.Resolve<IIndexSymbols>();
+                _diagnostics = _container.Resolve<SystemDiagnostics>();
 
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Info,
                     Resources.Log_Messages_ServiceEntryPoint_StartingService);
 
-                m_Indexer.Start();
-                m_Uploader.EnableUpload();
+                _indexer.Start();
+                _uploader.EnableUpload();
             }
         }
 
@@ -79,37 +80,37 @@ namespace Nanicitus.Service
         /// </summary>
         public void OnStop()
         {
-            lock (m_Lock)
+            lock (_lock)
             {
-                if (m_Diagnostics != null)
+                if (_diagnostics != null)
                 {
-                    m_Diagnostics.Log(
+                    _diagnostics.Log(
                         LevelToLog.Info,
                         Resources.Log_Messages_ServiceEntryPoint_StoppingService);
                 }
 
-                if (m_Uploader != null)
+                if (_uploader != null)
                 {
-                    m_Uploader.DisableUpload();
-                    m_Uploader = null;
+                    _uploader.DisableUpload();
+                    _uploader = null;
                 }
 
-                if (m_Indexer != null)
+                if (_indexer != null)
                 {
-                    var clearingTask = m_Indexer.Stop(true);
+                    var clearingTask = _indexer.Stop(true);
                     clearingTask.Wait();
-                    m_Indexer = null;
+                    _indexer = null;
                 }
 
-                if (m_Container != null)
+                if (_container != null)
                 {
-                    m_Container.Dispose();
-                    m_Container = null;
+                    _container.Dispose();
+                    _container = null;
                 }
 
-                if (m_Diagnostics != null)
+                if (_diagnostics != null)
                 {
-                    m_Diagnostics.Log(
+                    _diagnostics.Log(
                         LevelToLog.Info,
                         Resources.Log_Messages_ServiceEntryPoint_ServiceStopped);
                 }

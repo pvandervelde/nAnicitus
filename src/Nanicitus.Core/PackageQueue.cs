@@ -1,6 +1,7 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright company="NAnicitus">
-//     Copyright 2013 NAnicitus. Licensed under the Apache License, Version 2.0.
+// <copyright company="nAnicitus">
+// Copyright (c) nAnicitus. All rights reserved.
+// Licensed under the Apache License, Version 2.0 license. See LICENCE.md file in the project root for full license information.
 // </copyright>
 //-----------------------------------------------------------------------
 
@@ -17,7 +18,7 @@ namespace Nanicitus.Core
         /// <summary>
         /// Stores the full path to the queued packages.
         /// </summary>
-        private readonly ConcurrentQueue<string> m_Queue
+        private readonly ConcurrentQueue<string> _queue
             = new ConcurrentQueue<string>();
 
         /// <summary>
@@ -37,7 +38,7 @@ namespace Nanicitus.Core
                 Lokad.Enforce.Argument(() => fileName, Lokad.Rules.StringIs.NotEmpty);
             }
 
-            m_Queue.Enqueue(fileName);
+            _queue.Enqueue(fileName);
             RaiseOnEnqueue();
         }
 
@@ -48,8 +49,8 @@ namespace Nanicitus.Core
         public string Dequeue()
         {
             var path = string.Empty;
-            m_Queue.TryDequeue(out path);
-            
+            _queue.TryDequeue(out path);
+
             return path;
         }
 
@@ -71,7 +72,7 @@ namespace Nanicitus.Core
         {
             get
             {
-                return m_Queue.IsEmpty;
+                return _queue.IsEmpty;
             }
         }
     }

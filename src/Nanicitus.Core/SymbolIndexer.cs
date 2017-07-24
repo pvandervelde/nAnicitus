@@ -1,6 +1,7 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright company="NAnicitus">
-//     Copyright 2013 NAnicitus. Licensed under the Apache License, Version 2.0.
+// <copyright company="nAnicitus">
+// Copyright (c) nAnicitus. All rights reserved.
+// Licensed under the Apache License, Version 2.0 license. See LICENCE.md file in the project root for full license information.
 // </copyright>
 //-----------------------------------------------------------------------
 
@@ -8,6 +9,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -35,7 +37,7 @@ namespace Nanicitus.Core
         private const uint FileLocked = 0x80070020;
 
         /// <summary>
-        /// The HResult value that indicates that a portion of the file is locked by the operating 
+        /// The HResult value that indicates that a portion of the file is locked by the operating
         /// system.
         /// </summary>
         private const uint PortionOfFileLocked = 0x80070021;
@@ -53,7 +55,7 @@ namespace Nanicitus.Core
         private const int MaximumNumberOfTimesWaitingForPackageFileLock = 3;
 
         /// <summary>
-        /// The amount of time the process sleeps when it encounters a file that is locked by the 
+        /// The amount of time the process sleeps when it encounters a file that is locked by the
         /// operating system.
         /// </summary>
         private const int PackageFileLockSleepTimeInMilliSeconds = 5000;
@@ -231,79 +233,79 @@ namespace Nanicitus.Core
         /// <summary>
         /// The object used to lock on.
         /// </summary>
-        private readonly object m_Lock = new object();
+        private readonly object _lock = new object();
 
         /// <summary>
         /// The collection that holds information about packages that could not be processed because
-        /// the package file was locked when the indexer first tried to access it 
+        /// the package file was locked when the indexer first tried to access it
         /// (see https://github.com/pvandervelde/nAnicitus/issues/1).
         /// </summary>
-        private readonly Queue<Tuple<string, int>> m_LockedPackages
+        private readonly Queue<Tuple<string, int>> _lockedPackages
             = new Queue<Tuple<string, int>>();
 
         /// <summary>
         /// The queue that stores the location of the non-processed packages.
         /// </summary>
-        private readonly IQueueSymbolPackages m_Queue;
+        private readonly IQueueSymbolPackages _queue;
 
         /// <summary>
         /// The object that provides the diagnostics methods for the application.
         /// </summary>
-        private readonly SystemDiagnostics m_Diagnostics;
+        private readonly SystemDiagnostics _diagnostics;
 
         /// <summary>
         /// The full path to the 'srctool.exe' application that is used
         /// to extract source file information from a PDB file.
         /// </summary>
-        private readonly string m_SrcToolPath;
+        private readonly string _srcToolPath;
 
         /// <summary>
         /// The full path to the 'pdbstr.exe' application that is used
         /// to write source index information to a PDB file.
         /// </summary>
-        private readonly string m_PdbStrPath;
+        private readonly string _pdbStrPath;
 
         /// <summary>
         /// The full path to the 'symstore.exe' application that is used
         /// to store the symbols.
         /// </summary>
-        private readonly string m_SymStorePath;
+        private readonly string _symStorePath;
 
         /// <summary>
         /// The UNC path to the location where the sources are indexed.
         /// </summary>
-        private readonly string m_SourceUncPath;
+        private readonly string _sourceUncPath;
 
         /// <summary>
         /// The UNC path to the location where the symbols are indexed.
         /// </summary>
-        private readonly string m_SymbolsUncPath;
+        private readonly string _symbolsUncPath;
 
         /// <summary>
         /// The full path to the location where the processed packages are stored
         /// in case they are needed at a later stage.
         /// </summary>
-        private readonly string m_ProcessedPackagesPath;
+        private readonly string _processedPackagesPath;
 
         /// <summary>
         /// The directory in which the packages will be unzipped.
         /// </summary>
-        private readonly string m_UnpackDirectory = CreateUnzipDirectory();
+        private readonly string _unpackDirectory = CreateUnzipDirectory();
 
         /// <summary>
         /// The task that handles the actual symbol indexing process.
         /// </summary>
-        private Task m_Worker;
+        private Task _worker;
 
         /// <summary>
         /// The cancellation source that is used to cancel the worker task.
         /// </summary>
-        private CancellationTokenSource m_CancellationSource;
+        private CancellationTokenSource _cancellationSource;
 
         /// <summary>
         /// A flag indicating if the processing of symbols has started or not.
         /// </summary>
-        private bool m_IsStarted;
+        private bool _isStarted;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SymbolIndexer"/> class.
@@ -322,64 +324,64 @@ namespace Nanicitus.Core
                 Lokad.Enforce.Argument(() => diagnostics);
 
                 Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys.s_SourceIndexUncPath),
+                    configuration.HasValueFor(CoreConfigurationKeys._sourceIndexUncPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys.s_SourceIndexUncPath);
+                    CoreConfigurationKeys._sourceIndexUncPath);
                 Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys.s_SymbolsIndexUncPath),
+                    configuration.HasValueFor(CoreConfigurationKeys._symbolsIndexUncPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys.s_SymbolsIndexUncPath);
+                    CoreConfigurationKeys._symbolsIndexUncPath);
                 Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys.s_ProcessedPackagesPath),
+                    configuration.HasValueFor(CoreConfigurationKeys._processedPackagesPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys.s_ProcessedPackagesPath);
+                    CoreConfigurationKeys._processedPackagesPath);
             }
 
-            m_Diagnostics = diagnostics;
-            m_Queue = packageQueue;
-            m_Queue.OnEnqueue += HandleOnEnqueue;
+            _diagnostics = diagnostics;
+            _queue = packageQueue;
+            _queue.OnEnqueue += HandleOnEnqueue;
 
-            var debuggingToolsDirectory = configuration.HasValueFor(CoreConfigurationKeys.s_DebuggingToolsDirectory)
-                ? configuration.Value<string>(CoreConfigurationKeys.s_DebuggingToolsDirectory)
+            var debuggingToolsDirectory = configuration.HasValueFor(CoreConfigurationKeys._debuggingToolsDirectory)
+                ? configuration.Value<string>(CoreConfigurationKeys._debuggingToolsDirectory)
                 : DefaultSymbolServerToolsDirectory();
-            m_SymStorePath = Path.Combine(debuggingToolsDirectory, "symstore.exe");
-            m_SrcToolPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "srctool.exe");
-            m_PdbStrPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "pdbstr.exe");
-            m_SourceUncPath = configuration.Value<string>(CoreConfigurationKeys.s_SourceIndexUncPath);
-            m_SymbolsUncPath = configuration.Value<string>(CoreConfigurationKeys.s_SymbolsIndexUncPath);
-            m_ProcessedPackagesPath = configuration.Value<string>(CoreConfigurationKeys.s_ProcessedPackagesPath);
+            _symStorePath = Path.Combine(debuggingToolsDirectory, "symstore.exe");
+            _srcToolPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "srctool.exe");
+            _pdbStrPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "pdbstr.exe");
+            _sourceUncPath = configuration.Value<string>(CoreConfigurationKeys._sourceIndexUncPath);
+            _symbolsUncPath = configuration.Value<string>(CoreConfigurationKeys._symbolsIndexUncPath);
+            _processedPackagesPath = configuration.Value<string>(CoreConfigurationKeys._processedPackagesPath);
         }
 
         private void HandleOnEnqueue(object sender, EventArgs e)
         {
-            lock (m_Lock)
+            lock (_lock)
             {
-                if (!m_IsStarted)
+                if (!_isStarted)
                 {
-                    m_Diagnostics.Log(
+                    _diagnostics.Log(
                         LevelToLog.Trace,
                         Resources.Log_Messages_SymbolIndexer_NewItemInQueue_ProcessingNotStarted);
 
                     return;
                 }
 
-                if (m_Worker != null)
+                if (_worker != null)
                 {
-                    m_Diagnostics.Log(
+                    _diagnostics.Log(
                         LevelToLog.Trace,
                         Resources.Log_Messages_SymbolIndexer_NewItemInQueue_WorkerAlreadyExists);
 
                     return;
                 }
 
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Trace,
                     Resources.Log_Messages_SymbolIndexer_NewItemInQueue_StartingThread);
 
-                m_CancellationSource = new CancellationTokenSource();
-                m_Worker = Task.Factory.StartNew(
-                    () => ProcessSymbols(m_CancellationSource.Token),
-                    m_CancellationSource.Token,
+                _cancellationSource = new CancellationTokenSource();
+                _worker = Task.Factory.StartNew(
+                    () => ProcessSymbols(_cancellationSource.Token),
+                    _cancellationSource.Token,
                     TaskCreationOptions.LongRunning,
                     TaskScheduler.Default);
             }
@@ -390,23 +392,27 @@ namespace Nanicitus.Core
         /// </summary>
         public void Start()
         {
-            lock (m_Lock)
+            lock (_lock)
             {
-                m_IsStarted = true;
+                _isStarted = true;
             }
         }
 
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Do not want the application to crash because the processor dies.")]
         private void ProcessSymbols(CancellationToken token)
         {
             try
             {
-                m_Diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_StartingSymbolProcessing);
+                _diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_StartingSymbolProcessing);
 
                 while (!token.IsCancellationRequested)
                 {
-                    if (m_Queue.IsEmpty && (m_LockedPackages.Count == 0))
+                    if (_queue.IsEmpty && (_lockedPackages.Count == 0))
                     {
-                        m_Diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_QueueEmpty);
+                        _diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_QueueEmpty);
                         break;
                     }
 
@@ -420,7 +426,7 @@ namespace Nanicitus.Core
                     var project = package.Id;
                     var version = package.Version.Version;
 
-                    m_Diagnostics.Log(
+                    _diagnostics.Log(
                         LevelToLog.Info,
                         string.Format(
                             CultureInfo.InvariantCulture,
@@ -441,7 +447,7 @@ namespace Nanicitus.Core
                     {
                         processingWasSuccessful = false;
 
-                        m_Diagnostics.Log(
+                        _diagnostics.Log(
                             LevelToLog.Error,
                             string.Format(
                                 CultureInfo.InvariantCulture,
@@ -458,7 +464,7 @@ namespace Nanicitus.Core
                         }
                         catch (IOException e)
                         {
-                            m_Diagnostics.Log(
+                            _diagnostics.Log(
                                 LevelToLog.Error,
                                 string.Format(
                                     CultureInfo.InvariantCulture,
@@ -477,7 +483,7 @@ namespace Nanicitus.Core
             }
             catch (Exception e)
             {
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Error,
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -496,15 +502,15 @@ namespace Nanicitus.Core
             package = null;
 
             int processCount = 0;
-            if (!m_Queue.IsEmpty)
+            if (!_queue.IsEmpty)
             {
-                packageFile = m_Queue.Dequeue();
+                packageFile = _queue.Dequeue();
             }
             else
             {
-                if (m_LockedPackages.Count > 0)
+                if (_lockedPackages.Count > 0)
                 {
-                    var pair = m_LockedPackages.Dequeue();
+                    var pair = _lockedPackages.Dequeue();
                     packageFile = pair.Item1;
                     processCount = pair.Item2;
                 }
@@ -512,13 +518,13 @@ namespace Nanicitus.Core
 
             if (packageFile == null)
             {
-                m_Diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_PackageNotDefined);
+                _diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_PackageNotDefined);
                 return false;
             }
 
             if (processCount > MaximumNumberOfTimesPackageCanBeProcessed)
             {
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Warn,
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -531,6 +537,10 @@ namespace Nanicitus.Core
             return package != null;
         }
 
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Do not want the application to crash if there is an error loading symbols.")]
         private ZipPackage LoadSymbolPackage(string packageFile, int processCount)
         {
             try
@@ -546,14 +556,14 @@ namespace Nanicitus.Core
             }
             catch (Exception e)
             {
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Error,
                     string.Format(
                         CultureInfo.InvariantCulture,
                         Resources.Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException,
                         e));
 
-                m_LockedPackages.Enqueue(new Tuple<string, int>(packageFile, ++processCount));
+                _lockedPackages.Enqueue(new Tuple<string, int>(packageFile, ++processCount));
 
                 return null;
             }
@@ -562,7 +572,7 @@ namespace Nanicitus.Core
         private string Unpack(string packageFile, string project, Version version)
         {
             var destinationDirectory = Path.Combine(
-                m_UnpackDirectory,
+                _unpackDirectory,
                 string.Format(
                     CultureInfo.InvariantCulture,
                     "{0}.{1}",
@@ -600,7 +610,7 @@ namespace Nanicitus.Core
             var pdbFiles = GetPdbFiles(unpackLocation);
             foreach (var pdbFile in pdbFiles)
             {
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Info,
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -618,14 +628,14 @@ namespace Nanicitus.Core
                     writer.WriteLine("VERCTRL=http");
                     writer.WriteLine("SRCSRV: variables ------------------------------------------");
                     writer.WriteLine("SRCSRVVERCTRL=http");
-                    writer.WriteLine("UNCROOT=" + m_SourceUncPath);
+                    writer.WriteLine("UNCROOT=" + _sourceUncPath);
                     writer.WriteLine("HTTP_EXTRACT_TARGET=%UNCROOT%\\" + BuildSourcePath("%var2%", "%var3%") + "%var4%");
                     writer.WriteLine("SRCSRVTRG=%http_extract_target%");
                     writer.WriteLine("SRCSRVCMD=");
                     writer.WriteLine("SRCSRV: source files ---------------------------------------");
 
                     // Run SrcTool to list all files in a pdb
-                    var filesAsText = Execute(m_SrcToolPath, "-r " + pdbFile);
+                    var filesAsText = Execute(_srcToolPath, "-r " + pdbFile);
                     var files = filesAsText
                         .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                         .Where(l => !l.Contains("source files are indexed"))
@@ -672,16 +682,16 @@ namespace Nanicitus.Core
                     "-w -p:{0} -i:{1} -s:srcsrv",
                     pdbFile,
                     indexingFile.FullName);
-                var output = Execute(m_PdbStrPath, pdbstrArguments);
+                var output = Execute(_pdbStrPath, pdbstrArguments);
 
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Trace,
                     string.Format(
                         CultureInfo.InvariantCulture,
                         Resources.Log_Messages_SymbolIndexer_SymbolIndexingComplete_PdbStrOutput,
                         !string.IsNullOrWhiteSpace(output) ? output : Resources.Log_Messages_ExternalTool_NoResponse));
 
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Info,
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -694,7 +704,7 @@ namespace Nanicitus.Core
 
         private void UploadSources(string unpackLocation, string project, Version version)
         {
-            var destination = Path.Combine(m_SourceUncPath, BuildSourcePath(project, FormatVersion(version)));
+            var destination = Path.Combine(_sourceUncPath, BuildSourcePath(project, FormatVersion(version)));
 
             var sourceLocation = Path.Combine(unpackLocation, "src");
             var srcFiles = Directory.GetFiles(sourceLocation, "*.*", SearchOption.AllDirectories);
@@ -703,7 +713,7 @@ namespace Nanicitus.Core
                 var destinationFile = sourceFile.Replace(sourceLocation, destination);
                 var directory = Path.GetDirectoryName(destinationFile);
 
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Info,
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -721,7 +731,7 @@ namespace Nanicitus.Core
                 File.Copy(sourceFile, destinationFile);
                 File.SetAttributes(destinationFile, FileAttributes.ReadOnly);
 
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Info,
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -738,7 +748,7 @@ namespace Nanicitus.Core
             var pdbFiles = GetPdbFiles(unpackLocation);
             foreach (var path in pdbFiles)
             {
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Info,
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -751,19 +761,19 @@ namespace Nanicitus.Core
                     CultureInfo.InvariantCulture,
                     "add /f \"{0}\" /s \"{1}\" /t \"{2}\" /v {3}",
                     path,
-                    m_SymbolsUncPath,
+                    _symbolsUncPath,
                     project,
                     version);
-                var output = Execute(m_SymStorePath, symStoreArguments);
+                var output = Execute(_symStorePath, symStoreArguments);
 
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Trace,
                     string.Format(
                         CultureInfo.InvariantCulture,
                         Resources.Log_Messages_SymbolIndexer_UploadingSymbols_SymStoreOutput,
                         !string.IsNullOrWhiteSpace(output) ? output : Resources.Log_Messages_ExternalTool_NoResponse));
 
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Info,
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -782,17 +792,17 @@ namespace Nanicitus.Core
 
             try
             {
-                if (!Directory.Exists(m_ProcessedPackagesPath))
+                if (!Directory.Exists(_processedPackagesPath))
                 {
-                    Directory.CreateDirectory(m_ProcessedPackagesPath);
+                    Directory.CreateDirectory(_processedPackagesPath);
                 }
 
-                var newPath = Path.Combine(m_ProcessedPackagesPath, Path.GetFileName(packageFile));
+                var newPath = Path.Combine(_processedPackagesPath, Path.GetFileName(packageFile));
                 File.Move(packageFile, newPath);
             }
             catch (IOException e)
             {
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Error,
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -812,30 +822,30 @@ namespace Nanicitus.Core
         /// <returns>A task that completes when the indexer has stopped.</returns>
         public Task Stop(bool clearCurrentQueue)
         {
-            m_IsStarted = false;
+            _isStarted = false;
 
             var result = Task.Factory.StartNew(
                 () =>
                 {
-                    m_Diagnostics.Log(
+                    _diagnostics.Log(
                         LevelToLog.Info,
                         Resources.Log_Messages_SymbolIndexer_StoppingProcessing);
 
-                    if (!clearCurrentQueue && !m_Queue.IsEmpty)
+                    if (!clearCurrentQueue && !_queue.IsEmpty)
                     {
-                        lock (m_Lock)
+                        lock (_lock)
                         {
-                            if (m_CancellationSource != null)
+                            if (_cancellationSource != null)
                             {
-                                m_CancellationSource.Cancel();
+                                _cancellationSource.Cancel();
                             }
                         }
                     }
 
                     Task worker;
-                    lock (m_Lock)
+                    lock (_lock)
                     {
-                        worker = m_Worker;
+                        worker = _worker;
                     }
 
                     if (worker != null)
@@ -851,14 +861,14 @@ namespace Nanicitus.Core
 
         private void CleanUpWorkerTask()
         {
-            lock (m_Lock)
+            lock (_lock)
             {
-                m_Diagnostics.Log(
+                _diagnostics.Log(
                     LevelToLog.Trace,
                     Resources.Log_Messages_SymbolIndexer_CleaningUpWorker);
 
-                m_CancellationSource = null;
-                m_Worker = null;
+                _cancellationSource = null;
+                _worker = null;
             }
         }
 
@@ -870,9 +880,14 @@ namespace Nanicitus.Core
             var task = Stop(false);
             task.Wait();
 
+            if (_cancellationSource != null)
+            {
+                _cancellationSource.Dispose();
+            }
+
             try
             {
-                Directory.Delete(m_UnpackDirectory, true);
+                Directory.Delete(_unpackDirectory, true);
             }
             catch (IOException)
             {
