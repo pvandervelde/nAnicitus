@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<archive>
+    <name>${ProductName}-${VersionSemantic}</name>
+    <files>
+        <file
+            src="${DirWorkspace}\readme.txt"
+            target="" />
+        <file
+            exclude=""
+            src="${DirSrc}\Nanicitus.Service\bin\${Configuration}\*.dll"
+            target="" />
+        <file
+            exclude="${DirSrc}\Nanicitus.Service\bin\${Configuration}\*.vshost.exe"
+            src="${DirSrc}\Nanicitus.Service\bin\${Configuration}\*.exe"
+            target="" />
+        <file
+            src="${DirSrc}\Nanicitus.Service\bin\${Configuration}\*.exe.config"
+            target="" />
+    </files>
+</archive>

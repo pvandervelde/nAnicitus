@@ -1,9 +1,11 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright company="NAnicitus">
-//     Copyright 2013 NAnicitus. Licensed under the Apache License, Version 2.0.
+// <copyright company="nAnicitus">
+// Copyright (c) nAnicitus. All rights reserved.
+// Licensed under the Apache License, Version 2.0 license. See LICENCE.md file in the project root for full license information.
 // </copyright>
 //-----------------------------------------------------------------------
 
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 
 namespace Nanicitus.Core
@@ -25,6 +27,11 @@ namespace Nanicitus.Core
         /// Indicates if the elements currently in the queue need to be processed before stopping or not.
         /// </param>
         /// <returns>A task that completes when the indexer has stopped.</returns>
+        [SuppressMessage(
+            "Microsoft.Naming",
+            "CA1716:IdentifiersShouldNotMatchKeywords",
+            MessageId = "Stop",
+            Justification = "Stop is a sensible term to use.")]
         Task Stop(bool clearCurrentQueue);
     }
 }

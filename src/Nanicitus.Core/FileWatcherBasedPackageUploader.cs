@@ -1,6 +1,7 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright company="NAnicitus">
-//     Copyright 2013 NAnicitus. Licensed under the Apache License, Version 2.0.
+// <copyright company="nAnicitus">
+// Copyright (c) nAnicitus. All rights reserved.
+// Licensed under the Apache License, Version 2.0 license. See LICENCE.md file in the project root for full license information.
 // </copyright>
 //-----------------------------------------------------------------------
 
@@ -19,17 +20,17 @@ namespace Nanicitus.Core
         /// <summary>
         /// The object that watches the file system for newly added packages.
         /// </summary>
-        private readonly FileSystemWatcher m_Watcher;
+        private readonly FileSystemWatcher _watcher;
 
         /// <summary>
         /// The queue that stores the location of the non-processed packages.
         /// </summary>
-        private readonly IQueueSymbolPackages m_Queue;
+        private readonly IQueueSymbolPackages _queue;
 
         /// <summary>
         /// The object that provides the diagnostics methods for the application.
         /// </summary>
-        private readonly SystemDiagnostics m_Diagnostics;
+        private readonly SystemDiagnostics _diagnostics;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FileWatcherBasedPackageUploader"/> class.
@@ -48,16 +49,16 @@ namespace Nanicitus.Core
                 Lokad.Enforce.Argument(() => diagnostics);
 
                 Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys.s_UploadPath),
+                    configuration.HasValueFor(CoreConfigurationKeys._uploadPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys.s_UploadPath);
+                    CoreConfigurationKeys._uploadPath);
             }
 
-            m_Queue = packageQueue;
-            m_Diagnostics = diagnostics;
+            _queue = packageQueue;
+            _diagnostics = diagnostics;
 
-            var uploadPath = configuration.Value<string>(CoreConfigurationKeys.s_UploadPath);
-            m_Watcher = new FileSystemWatcher
+            var uploadPath = configuration.Value<string>(CoreConfigurationKeys._uploadPath);
+            _watcher = new FileSystemWatcher
             {
                 Path = uploadPath,
                 Filter = "*.symbols.nupkg",
@@ -65,16 +66,16 @@ namespace Nanicitus.Core
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.CreationTime,
             };
 
-            m_Watcher.Created += HandleFileCreated;
+            _watcher.Created += HandleFileCreated;
         }
 
         private void HandleFileCreated(object sender, FileSystemEventArgs e)
         {
             if (e.ChangeType == WatcherChangeTypes.Created)
             {
-                m_Queue.Enqueue(e.FullPath);
-                m_Diagnostics.Log(
-                    LevelToLog.Info, 
+                _queue.Enqueue(e.FullPath);
+                _diagnostics.Log(
+                    LevelToLog.Info,
                     string.Format(
                         CultureInfo.InvariantCulture,
                         Resources.Log_Messages_FileWatcherBasedPackageUploader_DiscoveredFile_WithFilePath,
@@ -87,20 +88,20 @@ namespace Nanicitus.Core
         /// </summary>
         public void EnableUpload()
         {
-            m_Diagnostics.Log(
+            _diagnostics.Log(
                 LevelToLog.Info,
                 Resources.Log_Messages_FileWatcherBasedPackageUploader_PackageDiscovery_Enabled);
 
             EnqueueExistingFiles();
-            m_Watcher.EnableRaisingEvents = true;
+            _watcher.EnableRaisingEvents = true;
         }
 
         private void EnqueueExistingFiles()
         {
-            foreach (var file in Directory.GetFiles(m_Watcher.Path, m_Watcher.Filter, SearchOption.TopDirectoryOnly))
+            foreach (var file in Directory.GetFiles(_watcher.Path, _watcher.Filter, SearchOption.TopDirectoryOnly))
             {
-                m_Queue.Enqueue(file);
-                m_Diagnostics.Log(
+                _queue.Enqueue(file);
+                _diagnostics.Log(
                     LevelToLog.Info,
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -114,8 +115,8 @@ namespace Nanicitus.Core
         /// </summary>
         public void DisableUpload()
         {
-            m_Watcher.EnableRaisingEvents = false;
-            m_Diagnostics.Log(
+            _watcher.EnableRaisingEvents = false;
+            _diagnostics.Log(
                     LevelToLog.Info,
                     Resources.Log_Messages_FileWatcherBasedPackageUploader_PackageDiscovery_Disabled);
         }
