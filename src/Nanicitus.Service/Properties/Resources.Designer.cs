@@ -70,6 +70,15 @@ namespace Nanicitus.Service.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Service discovery failed..
+        /// </summary>
+        internal static string Exceptions_Messages_ServiceDiscoveryFailed {
+            get {
+                return ResourceManager.GetString("Exceptions_Messages_ServiceDiscoveryFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Service shut down complete..
         /// </summary>
         internal static string Log_Messages_ServiceEntryPoint_ServiceStopped {

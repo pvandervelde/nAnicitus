@@ -68,6 +68,7 @@ namespace Nanicitus.Service
 
                 builder.RegisterModule(new NanicitusModule());
 
+                RegisterServiceDiscovery(builder);
                 RegisterServiceInfo(builder);
                 RegisterEntryPoint(builder);
             }
@@ -157,6 +158,12 @@ namespace Nanicitus.Service
             builder.RegisterModelBinderProvider();
         }
 
+        private static void RegisterServiceDiscovery(ContainerBuilder builder)
+        {
+            builder.RegisterType(typeof(ConsulServiceDiscovery))
+                .As<IServiceDiscovery>()
+                .SingleInstance();
+        }
 
         private static void RegisterServiceInfo(ContainerBuilder builder)
         {

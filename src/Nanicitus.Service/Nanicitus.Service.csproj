@@ -168,6 +168,7 @@
   <ItemGroup>
     <Compile Include="ApplicationConstants.cs" />
     <Compile Include="Constants.cs" />
+    <Compile Include="ConsulServiceDiscovery.cs" />
     <Compile Include="Controllers\ServiceController.cs" />
     <Compile Include="DependencyInjection.cs" />
     <Compile Include="FileConstants.cs" />
@@ -182,6 +183,7 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <Compile Include="ServiceConfigurationKeys.cs" />
+    <Compile Include="ServiceDiscoveryException.cs" />
     <Compile Include="ServiceException.cs" />
     <Compile Include="ServiceInfo.cs" />
     <Compile Include="Startup.cs" />
