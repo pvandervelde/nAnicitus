@@ -6,9 +6,8 @@
 //-----------------------------------------------------------------------
 
 using System.Diagnostics.CodeAnalysis;
-using Nanicitus.Service.Properties;
 using Topshelf;
-using Topshelf.ServiceConfigurators;
+using Topshelf.Autofac;
 
 namespace Nanicitus.Service
 {
@@ -24,25 +23,24 @@ namespace Nanicitus.Service
         /// <returns>An integer value indicating if the process exited without errors (return code 0), or not.</returns>
         static int Main()
         {
+            DependencyInjection.CreateContainer();
             var host = HostFactory.New(
                 c =>
                 {
-                    c.Service(
-                        (ServiceConfigurator<ServiceEntryPoint> s) =>
+                    c.UseNLog();
+                    c.UseAutofacContainer(DependencyInjection.Container);
+                    c.Service<WebService>(
+                        s =>
                         {
-                            s.ConstructUsing(() => new ServiceEntryPoint());
-                            s.WhenStarted(m => m.OnStart());
-                            s.WhenStopped(m => m.OnStop());
+                            s.ConstructUsingAutofacContainer();
+                            s.WhenStarted(a => a.Start());
+                            s.WhenStopped(a => a.Stop());
                         });
                     c.StartAutomatically();
 
                     c.DependsOnEventLog();
 
                     c.EnableShutdown();
-
-                    c.SetServiceName(Resources.Service_ServiceName);
-                    c.SetDisplayName(Resources.Service_DisplayName);
-                    c.SetDescription(Resources.Service_Description);
                 });
 
             var exitCode = host.Run();

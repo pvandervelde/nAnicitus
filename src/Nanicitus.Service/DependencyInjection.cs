@@ -10,9 +10,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Web.Http.Tracing;
 using Autofac;
+using Autofac.Integration.Mvc;
+using Autofac.Integration.WebApi;
 using Nanicitus.Core;
-using NLog;
 using Nuclei.Configuration;
 using Nuclei.Diagnostics;
 using Nuclei.Diagnostics.Logging;
@@ -37,35 +39,80 @@ namespace Nanicitus.Service
         /// </summary>
         private const string DefaultProfilerFileName = "nanicitus.profile";
 
-        private static void RegisterLoggers(ContainerBuilder builder)
+        /// <summary>
+        /// The DI container.
+        /// </summary>
+        private static IContainer _container;
+
+        /// <summary>
+        /// Gets the DI container.
+        /// </summary>
+        public static IContainer Container
         {
-            builder.Register(
-                    c =>
+            get => _container;
+        }
+
+        /// <summary>
+        /// Creates the DI container for the application.
+        /// </summary>
+        public static void CreateContainer()
+        {
+            var builder = new ContainerBuilder();
+            {
+                RegisterWebApiControllers(builder);
+                RegisterMvcControllers(builder);
+
+                RegisterConfiguration(builder);
+                RegisterLoggers(builder);
+                RegisterDiagnostics(builder);
+
+                builder.RegisterModule(new NanicitusModule());
+
+                RegisterServiceInfo(builder);
+                RegisterEntryPoint(builder);
+            }
+
+            _container = builder.Build();
+        }
+
+        private static void RegisterConfiguration(ContainerBuilder builder)
+        {
+            var constantConfiguration = new ConstantConfiguration(
+                    new[]
                     {
-                        var ctx = c.Resolve<IComponentContext>();
-                        var config = ctx.Resolve<IConfiguration>();
-                        var configPath = string.Empty;
-                        if (config.HasValueFor(ServiceConfigurationKeys.LogPath))
-                        {
-                            configPath = config.Value<string>(ServiceConfigurationKeys.LogPath);
-                        }
+                        CoreConfigurationKeys.ToDefault(),
+                        ServiceConfigurationKeys.ToDefault()
+                    }
+                    .SelectMany(dict => dict)
+                    .ToDictionary(pair => pair.Key, pair => pair.Value));
 
-                        var path = Path.Combine(
-                            !string.IsNullOrWhiteSpace(configPath)
-                                ? configPath
-                                : FileConstants.LogPath(),
-                            DefaultInfoFileName);
-                        return LoggerBuilder.ForFile(
-                            "file",
-                            path);
-                    })
-                .As<ILogger>()
-                .SingleInstance();
+            var knownKeys = ServiceConfigurationKeys.ToDefault().Keys
+                .Append(CoreConfigurationKeys.ToDefault().Keys)
+                .Append(DiagnosticsConfigurationKeys.ToCollection())
+                .ToList();
+            var applicationConfiguration = new ApplicationConfiguration(
+                knownKeys,
+                Constants.ConfigurationSectionApplicationSettings);
 
-            builder.Register(c => LoggerBuilder.ForEventLog(
-                    "eventlog",
-                    Assembly.GetExecutingAssembly().GetName().Name))
-                .As<ILogger>()
+            var baseConfiguration = new HierarchicalConfiguration(
+                new IConfiguration[]
+                {
+                    applicationConfiguration,
+                    constantConfiguration
+                });
+
+            var consulConfiguration = new ConsulConfiguration(
+                knownKeys,
+                baseConfiguration);
+
+            builder.Register(c => new HierarchicalConfiguration(
+                    new IConfiguration[]
+                    {
+                        consulConfiguration,
+                        applicationConfiguration,
+                        constantConfiguration
+                    }))
+                .As<IConfiguration>()
                 .SingleInstance();
         }
 
@@ -82,30 +129,45 @@ namespace Nanicitus.Service
                 .SingleInstance();
         }
 
-        /// <summary>
-        /// Creates the DI container for the application.
-        /// </summary>
-        /// <returns>The DI container.</returns>
-        public static IContainer CreateContainer()
+        private static void RegisterEntryPoint(ContainerBuilder builder)
         {
-            var builder = new ContainerBuilder();
-            {
-                builder.Register(c => new ApplicationConfiguration(
-                        ServiceConfigurationKeys.ToCollection()
-                            .Append(CoreConfigurationKeys.ToCollection())
-                            .Append(DiagnosticsConfigurationKeys.ToCollection())
-                            .ToList(),
-                        Constants.ConfigurationSectionApplicationSettings))
-                    .As<IConfiguration>()
+            builder.RegisterType<WebService>();
+        }
+
+        private static void RegisterLoggers(ContainerBuilder builder)
+        {
+            builder.Register(
+                    c =>
+                    {
+                        return LoggerBuilder.FromConfiguration("file");
+                    })
+                .As<ILogger>()
+                .SingleInstance();
+
+            builder.Register(c => new NucleiBasedTraceWriter(
+                        c.Resolve<SystemDiagnostics>()))
+                    .As<ITraceWriter>()
                     .SingleInstance();
+        }
 
-                builder.RegisterModule(new NanicitusModule());
+        private static void RegisterMvcControllers(ContainerBuilder builder)
+        {
+            builder.RegisterControllers(Assembly.GetExecutingAssembly());
+            builder.RegisterModelBinders(Assembly.GetExecutingAssembly());
+            builder.RegisterModelBinderProvider();
+        }
 
-                RegisterLoggers(builder);
-                RegisterDiagnostics(builder);
-            }
 
-            return builder.Build();
+        private static void RegisterServiceInfo(ContainerBuilder builder)
+        {
+            builder.RegisterType(typeof(ServiceInfo))
+                .As<IServiceInfo>()
+                .SingleInstance();
+        }
+
+        private static void RegisterWebApiControllers(ContainerBuilder builder)
+        {
+            builder.RegisterApiControllers(Assembly.GetExecutingAssembly());
         }
     }
 }

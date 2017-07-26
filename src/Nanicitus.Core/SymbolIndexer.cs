@@ -6,7 +6,6 @@
 //-----------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -117,13 +116,6 @@ namespace Nanicitus.Core
             }
 
             return path;
-        }
-
-        private static string DefaultSymbolServerToolsDirectory()
-        {
-            return Environment.Is64BitProcess
-                ? @"C:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64"
-                : @"C:\Program Files (x86)\Windows Kits\8.0\Debuggers\x86";
         }
 
         /// <summary>
@@ -324,32 +316,30 @@ namespace Nanicitus.Core
                 Lokad.Enforce.Argument(() => diagnostics);
 
                 Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys._sourceIndexUncPath),
+                    configuration.HasValueFor(CoreConfigurationKeys.SourceIndexUncPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys._sourceIndexUncPath);
+                    CoreConfigurationKeys.SourceIndexUncPath);
                 Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys._symbolsIndexUncPath),
+                    configuration.HasValueFor(CoreConfigurationKeys.SymbolsIndexUncPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys._symbolsIndexUncPath);
+                    CoreConfigurationKeys.SymbolsIndexUncPath);
                 Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys._processedPackagesPath),
+                    configuration.HasValueFor(CoreConfigurationKeys.ProcessedPackagesPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys._processedPackagesPath);
+                    CoreConfigurationKeys.ProcessedPackagesPath);
             }
 
             _diagnostics = diagnostics;
             _queue = packageQueue;
             _queue.OnEnqueue += HandleOnEnqueue;
 
-            var debuggingToolsDirectory = configuration.HasValueFor(CoreConfigurationKeys._debuggingToolsDirectory)
-                ? configuration.Value<string>(CoreConfigurationKeys._debuggingToolsDirectory)
-                : DefaultSymbolServerToolsDirectory();
+            var debuggingToolsDirectory = configuration.Value<string>(CoreConfigurationKeys.DebuggingToolsDirectory);
             _symStorePath = Path.Combine(debuggingToolsDirectory, "symstore.exe");
             _srcToolPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "srctool.exe");
             _pdbStrPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "pdbstr.exe");
-            _sourceUncPath = configuration.Value<string>(CoreConfigurationKeys._sourceIndexUncPath);
-            _symbolsUncPath = configuration.Value<string>(CoreConfigurationKeys._symbolsIndexUncPath);
-            _processedPackagesPath = configuration.Value<string>(CoreConfigurationKeys._processedPackagesPath);
+            _sourceUncPath = configuration.Value<string>(CoreConfigurationKeys.SourceIndexUncPath);
+            _symbolsUncPath = configuration.Value<string>(CoreConfigurationKeys.SymbolsIndexUncPath);
+            _processedPackagesPath = configuration.Value<string>(CoreConfigurationKeys.ProcessedPackagesPath);
         }
 
         private void HandleOnEnqueue(object sender, EventArgs e)

@@ -49,15 +49,15 @@ namespace Nanicitus.Core
                 Lokad.Enforce.Argument(() => diagnostics);
 
                 Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys._uploadPath),
+                    configuration.HasValueFor(CoreConfigurationKeys.UploadPath),
                     Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys._uploadPath);
+                    CoreConfigurationKeys.UploadPath);
             }
 
             _queue = packageQueue;
             _diagnostics = diagnostics;
 
-            var uploadPath = configuration.Value<string>(CoreConfigurationKeys._uploadPath);
+            var uploadPath = configuration.Value<string>(CoreConfigurationKeys.UploadPath);
             _watcher = new FileSystemWatcher
             {
                 Path = uploadPath,
