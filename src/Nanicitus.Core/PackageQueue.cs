@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using Nanicitus.Core.Properties;
 
 namespace Nanicitus.Core
 {
@@ -33,9 +34,16 @@ namespace Nanicitus.Core
         /// </exception>
         public void Enqueue(string fileName)
         {
+            if (fileName == null)
             {
-                Lokad.Enforce.Argument(() => fileName);
-                Lokad.Enforce.Argument(() => fileName, Lokad.Rules.StringIs.NotEmpty);
+                throw new ArgumentNullException("fileName");
+            }
+
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                throw new ArgumentException(
+                    Resources.Exceptions_Messages_ParameterShouldNotBeAnEmptyString,
+                    "fileName");
             }
 
             _queue.Enqueue(fileName);

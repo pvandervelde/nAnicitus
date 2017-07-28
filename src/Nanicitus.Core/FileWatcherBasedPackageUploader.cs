@@ -43,19 +43,13 @@ namespace Nanicitus.Core
             IConfiguration configuration,
             SystemDiagnostics diagnostics)
         {
+            if (configuration == null)
             {
-                Lokad.Enforce.Argument(() => packageQueue);
-                Lokad.Enforce.Argument(() => configuration);
-                Lokad.Enforce.Argument(() => diagnostics);
-
-                Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys.UploadPath),
-                    Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys.UploadPath);
+                throw new ArgumentNullException("configuration");
             }
 
-            _queue = packageQueue;
-            _diagnostics = diagnostics;
+            _queue = packageQueue ?? throw new ArgumentNullException("packageQueue");
+            _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
 
             var uploadPath = configuration.Value(CoreConfigurationKeys.UploadPath);
             _watcher = new FileSystemWatcher

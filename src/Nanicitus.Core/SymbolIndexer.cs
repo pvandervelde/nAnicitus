@@ -254,27 +254,13 @@ namespace Nanicitus.Core
             IConfiguration configuration,
             SystemDiagnostics diagnostics)
         {
+            if (configuration == null)
             {
-                Lokad.Enforce.Argument(() => packageQueue);
-                Lokad.Enforce.Argument(() => configuration);
-                Lokad.Enforce.Argument(() => diagnostics);
-
-                Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys.SourceIndexUncPath),
-                    Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys.SourceIndexUncPath);
-                Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys.SymbolsIndexUncPath),
-                    Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys.SymbolsIndexUncPath);
-                Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys.ProcessedPackagesPath),
-                    Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys.ProcessedPackagesPath);
+                throw new ArgumentNullException("configuration");
             }
 
-            _diagnostics = diagnostics;
-            _queue = packageQueue;
+            _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
+            _queue = packageQueue ?? throw new ArgumentNullException("packageQueue");
             _queue.OnEnqueue += HandleOnEnqueue;
 
             var debuggingToolsDirectory = configuration.Value(CoreConfigurationKeys.DebuggingToolsDirectory);

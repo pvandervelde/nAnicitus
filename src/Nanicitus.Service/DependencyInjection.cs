@@ -88,8 +88,8 @@ namespace Nanicitus.Service
                     .ToDictionary(pair => pair.Key, pair => pair.Value));
 
             var knownKeys = ServiceConfigurationKeys.ToDefault().Keys
-                .Append(CoreConfigurationKeys.ToDefault().Keys)
-                .Append(DiagnosticsConfigurationKeys.ToCollection())
+                .Concat(CoreConfigurationKeys.ToDefault().Keys)
+                .Concat(DiagnosticsConfigurationKeys.ToCollection())
                 .ToList();
             var applicationConfiguration = new ApplicationConfiguration(
                 knownKeys,
