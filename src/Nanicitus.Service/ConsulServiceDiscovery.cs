@@ -22,6 +22,37 @@ namespace Nanicitus.Service
     /// </summary>
     internal sealed class ConsulServiceDiscovery : IServiceDiscovery
     {
+        private static AgentServiceCheck[] CreateChecks(int port, int healthIntervalInSeconds)
+        {
+            return new[]
+                {
+                    new AgentServiceCheck
+                    {
+                        HTTP = string.Format(
+                            CultureInfo.InvariantCulture,
+                            "http://localhost:{0}/api/v1/service/dependencies",
+                            port),
+                        Interval = new TimeSpan(0, 0, healthIntervalInSeconds)
+                    },
+                    new AgentServiceCheck
+                    {
+                        HTTP = string.Format(
+                            CultureInfo.InvariantCulture,
+                            "http://localhost:{0}/api/v1/service/healthcheck",
+                            port),
+                        Interval = new TimeSpan(0, 0, healthIntervalInSeconds)
+                    },
+                    new AgentServiceCheck
+                    {
+                        HTTP = string.Format(
+                            CultureInfo.InvariantCulture,
+                            "http://localhost:{0}/api/v1/service/isactive",
+                            port),
+                        Interval = new TimeSpan(0, 0, healthIntervalInSeconds)
+                    },
+                };
+        }
+
         private static string GetServiceId(string serviceName)
         {
             return string.Format(
@@ -146,25 +177,7 @@ namespace Nanicitus.Service
             {
                 Address = ipAddress,
 
-                Checks = new[]
-                {
-                    new AgentServiceCheck
-                    {
-                        HTTP = string.Format(
-                            CultureInfo.InvariantCulture,
-                            "http://localhost:{0}/api/v1/service/dependencies",
-                            servicePort),
-                        Interval = new TimeSpan(0, 0, healthIntervalInSeconds)
-                    },
-                    new AgentServiceCheck
-                    {
-                        HTTP = string.Format(
-                            CultureInfo.InvariantCulture,
-                            "http://localhost:{0}/api/v1/service/healthcheck",
-                            servicePort),
-                        Interval = new TimeSpan(0, 0, healthIntervalInSeconds)
-                    },
-                },
+                Checks = CreateChecks(servicePort, healthIntervalInSeconds),
 
                 EnableTagOverride = false,
                 ID = GetServiceId(serviceName),
@@ -202,6 +215,7 @@ namespace Nanicitus.Service
             var serviceName = _configuration.Value(ServiceConfigurationKeys.ServiceDiscoveryName);
             var serviceId = GetServiceId(serviceName);
             var tags = _configuration.Value(ServiceConfigurationKeys.ServiceDiscoveryTags)
+                .Concat(additionalTags)
                 .Where(t => !string.IsNullOrWhiteSpace(t))
                 .ToArray();
 
@@ -220,7 +234,7 @@ namespace Nanicitus.Service
                 ID = service.ID,
                 Name = serviceName,
                 Port = service.Port,
-                Tags = tags.Append(additionalTags).ToArray(),
+                Tags = tags,
             };
 
             var res = _consulClient.Agent.ServiceRegister(registration).Result;

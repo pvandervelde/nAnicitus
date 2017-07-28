@@ -6,7 +6,6 @@
 //-----------------------------------------------------------------------
 
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
 using System.Net.Http;
@@ -26,7 +25,7 @@ namespace Nanicitus.Service.Controllers
     /// The api controller for the health endpoints
     /// </summary>
     [ApiVersion("1.0")]
-    [Route("api/v{version:apiVersion}/Service/{action}")]
+    [Route("api/v{version:apiVersion}/service/{action}")]
     public sealed class ServiceController : ApiController
     {
         private readonly IConfiguration _configuration;
@@ -61,6 +60,8 @@ namespace Nanicitus.Service.Controllers
         [HttpPut]
         public HttpResponseMessage Activate()
         {
+            LogRequestDetails(Request);
+
             _serviceInfo.IsActive = true;
             _serviceInfo.IsEnabled = true;
             _serviceInfo.IsStandby = false;
@@ -90,6 +91,8 @@ namespace Nanicitus.Service.Controllers
         [HttpPut]
         public HttpResponseMessage Disable()
         {
+            LogRequestDetails(Request);
+
             _serviceInfo.IsActive = false;
             _serviceInfo.IsEnabled = false;
             _serviceInfo.IsStandby = false;
@@ -162,6 +165,38 @@ namespace Nanicitus.Service.Controllers
             };
 
             var responseCode = _serviceInfo.IsEnabled ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable;
+            var responseMessage = new HttpResponseMessage(responseCode);
+            responseMessage.Content = new StringContent(
+                JsonConvert.SerializeObject(responseContent),
+                Encoding.UTF8,
+                "application/json");
+
+            return responseMessage;
+        }
+
+        /// <summary>
+        /// Returns an indication on whether the service is active and able to process
+        /// symbols or not.
+        /// </summary>
+        /// <returns>
+        /// An HttpResponseMessage with a JSON object containing the active status response
+        /// </returns>
+        /// <remarks>
+        /// GET api/v1/Service/IsActive
+        /// </remarks>
+        [HttpGet]
+        public HttpResponseMessage IsActive()
+        {
+            LogRequestDetails(Request);
+
+            var responseContent = new
+            {
+                IsActive = _serviceInfo.IsActive,
+                IsEnabled = _serviceInfo.IsEnabled,
+                IsStandBy = _serviceInfo.IsStandby,
+            };
+
+            var responseCode = _serviceInfo.IsActive ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable;
             var responseMessage = new HttpResponseMessage(responseCode);
             responseMessage.Content = new StringContent(
                 JsonConvert.SerializeObject(responseContent),
