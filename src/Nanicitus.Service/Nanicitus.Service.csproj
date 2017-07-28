@@ -170,6 +170,7 @@
     <Compile Include="Constants.cs" />
     <Compile Include="ConsulServiceDiscovery.cs" />
     <Compile Include="Controllers\ServiceController.cs" />
+    <Compile Include="Controllers\SymbolsController.cs" />
     <Compile Include="DependencyInjection.cs" />
     <Compile Include="FileConstants.cs" />
     <Compile Include="IServiceDiscovery.cs" />

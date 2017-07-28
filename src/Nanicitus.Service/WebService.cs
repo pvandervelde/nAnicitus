@@ -8,6 +8,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -76,6 +77,18 @@ namespace Nanicitus.Service
             _serviceInfo.IsActive = false;
             _serviceInfo.IsEnabled = true;
             _serviceInfo.IsStandby = true;
+
+            var tempPath = _configuration.Value(ServiceConfigurationKeys.TempPath);
+            if (!Directory.Exists(tempPath))
+            {
+                Directory.CreateDirectory(tempPath);
+            }
+
+            var uploadPath = _configuration.Value(CoreConfigurationKeys.UploadPath);
+            if (!Directory.Exists(uploadPath))
+            {
+                Directory.CreateDirectory(uploadPath);
+            }
 
             var servicePort = _configuration.Value(ServiceConfigurationKeys.ServicePort);
 

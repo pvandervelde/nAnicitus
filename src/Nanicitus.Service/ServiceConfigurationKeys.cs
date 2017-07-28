@@ -7,7 +7,9 @@
 
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using Nanicitus.Service.Properties;
+using Nuclei;
 using Nuclei.Configuration;
 
 namespace Nanicitus.Service
@@ -55,11 +57,17 @@ namespace Nanicitus.Service
             = new ConfigurationKey<int>("ServicePort");
 
         /// <summary>
-        /// The configuration ky that is used to retrieve a flag that indicates if the
+        /// The configuration key that is used to retrieve a flag that indicates if the
         /// service should register with the service discovery system.
         /// </summary>
         public static readonly ConfigurationKey<bool> ShouldRegisterForDiscovery
             = new ConfigurationKey<bool>("ShouldRegisterForDiscovery");
+
+        /// <summary>
+        /// The configuration key that is used to retrieve the temporary path location.
+        /// </summary>
+        public static readonly ConfigurationKey<string> TempPath
+            = new ConfigurationKey<string>("TempPath");
 
         /// <summary>
         /// Returns a collection containing all the configuration keys for the application and
@@ -78,6 +86,7 @@ namespace Nanicitus.Service
                 { ServiceDiscoveryTags, new string[0] },
                 { ServicePort, 5050 },
                 { ShouldRegisterForDiscovery, true },
+                { TempPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "temp") },
             };
         }
     }
