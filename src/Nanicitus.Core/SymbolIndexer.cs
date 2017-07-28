@@ -6,7 +6,6 @@
 //-----------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -32,151 +31,21 @@ namespace Nanicitus.Core
     internal sealed class SymbolIndexer : IIndexSymbols, IDisposable
     {
         /// <summary>
-        /// The HResult value that indicates that the file is locked by the operating system.
-        /// </summary>
-        private const uint FileLocked = 0x80070020;
-
-        /// <summary>
-        /// The HResult value that indicates that a portion of the file is locked by the operating
-        /// system.
-        /// </summary>
-        private const uint PortionOfFileLocked = 0x80070021;
-
-        /// <summary>
         /// Indicates the maximum number of times the indexer will try to process a package
         /// before giving up.
         /// </summary>
         private const int MaximumNumberOfTimesPackageCanBeProcessed = 3;
 
-        /// <summary>
-        /// Indicates the maximum number of times that the process will wait for a locked file before
-        /// giving up and moving on.
-        /// </summary>
-        private const int MaximumNumberOfTimesWaitingForPackageFileLock = 3;
-
-        /// <summary>
-        /// The amount of time the process sleeps when it encounters a file that is locked by the
-        /// operating system.
-        /// </summary>
-        private const int PackageFileLockSleepTimeInMilliSeconds = 5000;
-
-        /// <summary>
-        /// Returns a value indicating if the file is locked for reading.
-        /// </summary>
-        /// <param name="path">The path of the file.</param>
-        /// <returns>
-        ///     <see langword="true"/> if the file is locked for reading; otherwise <see langword="false" />.
-        /// </returns>
-        /// <remarks>
-        /// Original code here: http://stackoverflow.com/a/14132721/539846.
-        /// </remarks>
-        private static bool IsAvailableForReading(string path)
+        private static string BuildSourcePath(string project, string version)
         {
-            try
-            {
-                using (File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None))
-                {
-                    // Do nothing. Just want to know if the file is locked.
-                }
+            // The string format template for the layout of the source indexing directory.
+            const string sourceStoragePathTemplate = @"{0}\{1}\";
 
-                return true;
-            }
-            catch (IOException e)
-            {
-                var errorCode = (uint)Marshal.GetHRForException(e);
-                if (errorCode != FileLocked && errorCode != PortionOfFileLocked)
-                {
-                    throw;
-                }
-
-                return false;
-            }
-        }
-
-        private static string CreateUnzipDirectory()
-        {
-            var assembly = Assembly.GetExecutingAssembly();
-            var attributes = assembly.GetCustomAttributes(typeof(AssemblyProductAttribute), false);
-            Debug.Assert(attributes.Length == 1, "There should only be 1 AssemblyProductAttribute");
-
-            var product = ((AssemblyProductAttribute)attributes[0]).Product;
-            var path = Path.Combine(
-                Path.GetTempPath(),
-                product,
-                Guid.NewGuid().ToString("D"));
-
-            if (!Directory.Exists(path))
-            {
-                try
-                {
-                    Directory.CreateDirectory(path);
-                }
-                catch (IOException)
-                {
-                }
-            }
-
-            return path;
-        }
-
-        private static string DefaultSymbolServerToolsDirectory()
-        {
-            return Environment.Is64BitProcess
-                ? @"C:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64"
-                : @"C:\Program Files (x86)\Windows Kits\8.0\Debuggers\x86";
-        }
-
-        /// <summary>
-        /// Execute a command and return the output.
-        /// </summary>
-        /// <param name="cmd">The command to execute.</param>
-        /// <param name="args">Arguments to the command.</param>
-        /// <returns>The output of the command.</returns>
-        private static string Execute(string cmd, string args)
-        {
-            var p = new Process
-            {
-                StartInfo = new ProcessStartInfo(cmd, args)
-                {
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true
-                }
-            };
-
-            p.Start();
-            var output = p.StandardOutput.ReadToEnd();
-            p.WaitForExit();
-
-            return output;
-        }
-
-        private static string[] GetPdbFiles(string unpackLocation)
-        {
-            var pdbFiles = Directory.GetFiles(unpackLocation, "*.pdb", SearchOption.AllDirectories);
-            return pdbFiles;
-        }
-
-        private static int NumberOfMatchingCharactersStartingFromTheEnd(string first, string second)
-        {
-            var longer = (first.Length > second.Length) ? first : second;
-            var shorter = (longer == first) ? second : first;
-
-            var longerLastCharacterIndex = longer.Length - 1;
-            var shorterLastCharacterIndex = shorter.Length - 1;
-
-            var counter = 0;
-            for (int i = 0; i < shorter.Length; i++)
-            {
-                if (longer[longerLastCharacterIndex - i] != shorter[shorterLastCharacterIndex - i])
-                {
-                    break;
-                }
-
-                counter++;
-            }
-
-            return counter;
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                sourceStoragePathTemplate,
+                project,
+                version);
         }
 
         private static Dictionary<string, string> CalculateRelativePaths(string sourceLocation, IEnumerable<string> files)
@@ -207,16 +76,55 @@ namespace Nanicitus.Core
             return result;
         }
 
-        private static string BuildSourcePath(string project, string version)
+        private static string CreateUnzipDirectory()
         {
-            // The string format template for the layout of the source indexing directory.
-            const string sourceStoragePathTemplate = @"{0}\{1}\";
+            var assembly = Assembly.GetExecutingAssembly();
+            var attributes = assembly.GetCustomAttributes(typeof(AssemblyProductAttribute), false);
+            Debug.Assert(attributes.Length == 1, "There should only be 1 AssemblyProductAttribute");
 
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                sourceStoragePathTemplate,
-                project,
-                version);
+            var product = ((AssemblyProductAttribute)attributes[0]).Product;
+            var path = Path.Combine(
+                Path.GetTempPath(),
+                product,
+                Guid.NewGuid().ToString("D"));
+
+            if (!Directory.Exists(path))
+            {
+                try
+                {
+                    Directory.CreateDirectory(path);
+                }
+                catch (IOException)
+                {
+                }
+            }
+
+            return path;
+        }
+
+        /// <summary>
+        /// Execute a command and return the output.
+        /// </summary>
+        /// <param name="cmd">The command to execute.</param>
+        /// <param name="args">Arguments to the command.</param>
+        /// <returns>The output of the command.</returns>
+        private static string Execute(string cmd, string args)
+        {
+            var p = new Process
+            {
+                StartInfo = new ProcessStartInfo(cmd, args)
+                {
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                }
+            };
+
+            p.Start();
+            var output = p.StandardOutput.ReadToEnd();
+            p.WaitForExit();
+
+            return output;
         }
 
         private static string FormatVersion(Version version)
@@ -228,6 +136,34 @@ namespace Nanicitus.Core
                 version.Minor,
                 version.Build,
                 version.Revision);
+        }
+
+        private static string[] GetPdbFiles(string unpackLocation)
+        {
+            var pdbFiles = Directory.GetFiles(unpackLocation, "*.pdb", SearchOption.AllDirectories);
+            return pdbFiles;
+        }
+
+        private static int NumberOfMatchingCharactersStartingFromTheEnd(string first, string second)
+        {
+            var longer = (first.Length > second.Length) ? first : second;
+            var shorter = (longer == first) ? second : first;
+
+            var longerLastCharacterIndex = longer.Length - 1;
+            var shorterLastCharacterIndex = shorter.Length - 1;
+
+            var counter = 0;
+            for (int i = 0; i < shorter.Length; i++)
+            {
+                if (longer[longerLastCharacterIndex - i] != shorter[shorterLastCharacterIndex - i])
+                {
+                    break;
+                }
+
+                counter++;
+            }
+
+            return counter;
         }
 
         /// <summary>
@@ -318,38 +254,22 @@ namespace Nanicitus.Core
             IConfiguration configuration,
             SystemDiagnostics diagnostics)
         {
+            if (configuration == null)
             {
-                Lokad.Enforce.Argument(() => packageQueue);
-                Lokad.Enforce.Argument(() => configuration);
-                Lokad.Enforce.Argument(() => diagnostics);
-
-                Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys._sourceIndexUncPath),
-                    Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys._sourceIndexUncPath);
-                Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys._symbolsIndexUncPath),
-                    Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys._symbolsIndexUncPath);
-                Lokad.Enforce.With<ArgumentException>(
-                    configuration.HasValueFor(CoreConfigurationKeys._processedPackagesPath),
-                    Resources.Exceptions_Messages_MissingConfigurationValue_WithKey,
-                    CoreConfigurationKeys._processedPackagesPath);
+                throw new ArgumentNullException("configuration");
             }
 
-            _diagnostics = diagnostics;
-            _queue = packageQueue;
+            _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
+            _queue = packageQueue ?? throw new ArgumentNullException("packageQueue");
             _queue.OnEnqueue += HandleOnEnqueue;
 
-            var debuggingToolsDirectory = configuration.HasValueFor(CoreConfigurationKeys._debuggingToolsDirectory)
-                ? configuration.Value<string>(CoreConfigurationKeys._debuggingToolsDirectory)
-                : DefaultSymbolServerToolsDirectory();
+            var debuggingToolsDirectory = configuration.Value(CoreConfigurationKeys.DebuggingToolsDirectory);
             _symStorePath = Path.Combine(debuggingToolsDirectory, "symstore.exe");
             _srcToolPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "srctool.exe");
             _pdbStrPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "pdbstr.exe");
-            _sourceUncPath = configuration.Value<string>(CoreConfigurationKeys._sourceIndexUncPath);
-            _symbolsUncPath = configuration.Value<string>(CoreConfigurationKeys._symbolsIndexUncPath);
-            _processedPackagesPath = configuration.Value<string>(CoreConfigurationKeys._processedPackagesPath);
+            _sourceUncPath = configuration.Value(CoreConfigurationKeys.SourceIndexUncPath);
+            _symbolsUncPath = configuration.Value(CoreConfigurationKeys.SymbolsIndexUncPath);
+            _processedPackagesPath = configuration.Value(CoreConfigurationKeys.ProcessedPackagesPath);
         }
 
         private void HandleOnEnqueue(object sender, EventArgs e)
@@ -533,40 +453,20 @@ namespace Nanicitus.Core
                 return false;
             }
 
-            package = LoadSymbolPackage(packageFile, processCount);
-            return package != null;
-        }
-
-        [SuppressMessage(
-            "Microsoft.Design",
-            "CA1031:DoNotCatchGeneralExceptionTypes",
-            Justification = "Do not want the application to crash if there is an error loading symbols.")]
-        private ZipPackage LoadSymbolPackage(string packageFile, int processCount)
-        {
-            try
-            {
-                int waitCount = 0;
-                while ((!IsAvailableForReading(packageFile)) && (waitCount < MaximumNumberOfTimesWaitingForPackageFileLock))
+            package = PackageUtilities.LoadSymbolPackage(
+                packageFile,
+                (file, e) =>
                 {
-                    waitCount++;
-                    Thread.Sleep(PackageFileLockSleepTimeInMilliSeconds);
-                }
+                    _diagnostics.Log(
+                        LevelToLog.Error,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Resources.Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException,
+                            e));
 
-                return new ZipPackage(packageFile);
-            }
-            catch (Exception e)
-            {
-                _diagnostics.Log(
-                    LevelToLog.Error,
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        Resources.Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException,
-                        e));
-
-                _lockedPackages.Enqueue(new Tuple<string, int>(packageFile, ++processCount));
-
-                return null;
-            }
+                    _lockedPackages.Enqueue(new Tuple<string, int>(file, ++processCount));
+                });
+            return package != null;
         }
 
         private string Unpack(string packageFile, string project, Version version)

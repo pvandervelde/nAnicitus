@@ -5,7 +5,12 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Reflection;
+using Nuclei;
 using Nuclei.Configuration;
 
 namespace Nanicitus.Core
@@ -19,48 +24,75 @@ namespace Nanicitus.Core
         /// The configuration key that is used to retrieve directory path where the symbol server
         /// tools are installed.
         /// </summary>
-        internal static readonly ConfigurationKeyBase _debuggingToolsDirectory
+        [SuppressMessage(
+            "Microsoft.Security",
+            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
+            Justification = "ConfigurationKey objects are immutable.")]
+        public static readonly ConfigurationKey<string> DebuggingToolsDirectory
             = new ConfigurationKey<string>("DebuggingToolsDirectory");
+
+        private static string DefaultSymbolServerToolsDirectory()
+        {
+            return Environment.Is64BitProcess
+                ? @"C:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64"
+                : @"C:\Program Files (x86)\Windows Kits\8.0\Debuggers\x86";
+        }
 
         /// <summary>
         /// The configuration key that is used to retrieve UNC path for the source index directory.
         /// </summary>
-        internal static readonly ConfigurationKeyBase _sourceIndexUncPath
+        [SuppressMessage(
+            "Microsoft.Security",
+            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
+            Justification = "ConfigurationKey objects are immutable.")]
+        public static readonly ConfigurationKey<string> SourceIndexUncPath
             = new ConfigurationKey<string>("SourceIndexUncPath");
 
         /// <summary>
         /// The configuration key that is used to retrieve UNC path for the symbols directory.
         /// </summary>
-        internal static readonly ConfigurationKeyBase _symbolsIndexUncPath
+        [SuppressMessage(
+            "Microsoft.Security",
+            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
+            Justification = "ConfigurationKey objects are immutable.")]
+        public static readonly ConfigurationKey<string> SymbolsIndexUncPath
             = new ConfigurationKey<string>("SymbolsIndexUncPath");
 
         /// <summary>
         /// The configuration key that is used to retrieve path for the directory in
         /// which the processed symbol packages will be placed.
         /// </summary>
-        internal static readonly ConfigurationKeyBase _processedPackagesPath
+        [SuppressMessage(
+            "Microsoft.Security",
+            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
+            Justification = "ConfigurationKey objects are immutable.")]
+        public static readonly ConfigurationKey<string> ProcessedPackagesPath
             = new ConfigurationKey<string>("ProcessedPackagesPath");
 
         /// <summary>
         /// The configuration key that is used to retrieve path for the directory in
         /// which the uploads will be placed.
         /// </summary>
-        internal static readonly ConfigurationKeyBase _uploadPath
+        [SuppressMessage(
+            "Microsoft.Security",
+            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
+            Justification = "ConfigurationKey objects are immutable.")]
+        public static readonly ConfigurationKey<string> UploadPath
             = new ConfigurationKey<string>("UploadPath");
 
         /// <summary>
         /// Returns a collection containing all the configuration keys for the application.
         /// </summary>
         /// <returns>A collection containing all the configuration keys for the application.</returns>
-        public static IEnumerable<ConfigurationKeyBase> ToCollection()
+        public static IDictionary<ConfigurationKeyBase, object> ToDefault()
         {
-            return new List<ConfigurationKeyBase>
+            return new Dictionary<ConfigurationKeyBase, object>
                 {
-                    _debuggingToolsDirectory,
-                    _sourceIndexUncPath,
-                    _symbolsIndexUncPath,
-                    _processedPackagesPath,
-                    _uploadPath
+                    { DebuggingToolsDirectory, DefaultSymbolServerToolsDirectory() },
+                    { SourceIndexUncPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "sources") },
+                    { SymbolsIndexUncPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "symbols") },
+                    { ProcessedPackagesPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "processed") },
+                    { UploadPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "uploads") },
                 };
         }
     }
