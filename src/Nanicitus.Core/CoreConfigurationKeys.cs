@@ -28,7 +28,7 @@ namespace Nanicitus.Core
             "Microsoft.Security",
             "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
             Justification = "ConfigurationKey objects are immutable.")]
-        public static readonly ConfigurationKeyBase DebuggingToolsDirectory
+        public static readonly ConfigurationKey<string> DebuggingToolsDirectory
             = new ConfigurationKey<string>("DebuggingToolsDirectory");
 
         private static string DefaultSymbolServerToolsDirectory()
@@ -45,7 +45,7 @@ namespace Nanicitus.Core
             "Microsoft.Security",
             "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
             Justification = "ConfigurationKey objects are immutable.")]
-        public static readonly ConfigurationKeyBase SourceIndexUncPath
+        public static readonly ConfigurationKey<string> SourceIndexUncPath
             = new ConfigurationKey<string>("SourceIndexUncPath");
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace Nanicitus.Core
             "Microsoft.Security",
             "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
             Justification = "ConfigurationKey objects are immutable.")]
-        public static readonly ConfigurationKeyBase SymbolsIndexUncPath
+        public static readonly ConfigurationKey<string> SymbolsIndexUncPath
             = new ConfigurationKey<string>("SymbolsIndexUncPath");
 
         /// <summary>
@@ -66,7 +66,7 @@ namespace Nanicitus.Core
             "Microsoft.Security",
             "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
             Justification = "ConfigurationKey objects are immutable.")]
-        public static readonly ConfigurationKeyBase ProcessedPackagesPath
+        public static readonly ConfigurationKey<string> ProcessedPackagesPath
             = new ConfigurationKey<string>("ProcessedPackagesPath");
 
         /// <summary>
@@ -77,7 +77,7 @@ namespace Nanicitus.Core
             "Microsoft.Security",
             "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
             Justification = "ConfigurationKey objects are immutable.")]
-        public static readonly ConfigurationKeyBase UploadPath
+        public static readonly ConfigurationKey<string> UploadPath
             = new ConfigurationKey<string>("UploadPath");
 
         /// <summary>

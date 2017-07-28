@@ -31,65 +31,49 @@ namespace Nanicitus.Core
     internal sealed class SymbolIndexer : IIndexSymbols, IDisposable
     {
         /// <summary>
-        /// The HResult value that indicates that the file is locked by the operating system.
-        /// </summary>
-        private const uint FileLocked = 0x80070020;
-
-        /// <summary>
-        /// The HResult value that indicates that a portion of the file is locked by the operating
-        /// system.
-        /// </summary>
-        private const uint PortionOfFileLocked = 0x80070021;
-
-        /// <summary>
         /// Indicates the maximum number of times the indexer will try to process a package
         /// before giving up.
         /// </summary>
         private const int MaximumNumberOfTimesPackageCanBeProcessed = 3;
 
-        /// <summary>
-        /// Indicates the maximum number of times that the process will wait for a locked file before
-        /// giving up and moving on.
-        /// </summary>
-        private const int MaximumNumberOfTimesWaitingForPackageFileLock = 3;
-
-        /// <summary>
-        /// The amount of time the process sleeps when it encounters a file that is locked by the
-        /// operating system.
-        /// </summary>
-        private const int PackageFileLockSleepTimeInMilliSeconds = 5000;
-
-        /// <summary>
-        /// Returns a value indicating if the file is locked for reading.
-        /// </summary>
-        /// <param name="path">The path of the file.</param>
-        /// <returns>
-        ///     <see langword="true"/> if the file is locked for reading; otherwise <see langword="false" />.
-        /// </returns>
-        /// <remarks>
-        /// Original code here: http://stackoverflow.com/a/14132721/539846.
-        /// </remarks>
-        private static bool IsAvailableForReading(string path)
+        private static string BuildSourcePath(string project, string version)
         {
-            try
+            // The string format template for the layout of the source indexing directory.
+            const string sourceStoragePathTemplate = @"{0}\{1}\";
+
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                sourceStoragePathTemplate,
+                project,
+                version);
+        }
+
+        private static Dictionary<string, string> CalculateRelativePaths(string sourceLocation, IEnumerable<string> files)
+        {
+            var result = new Dictionary<string, string>();
+
+            var sourceFiles = Directory.GetFiles(sourceLocation, "*.*", SearchOption.AllDirectories);
+            foreach (var file in files)
             {
-                using (File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None))
+                var fileName = Path.GetFileName(file);
+
+                // The relative path should be the file path relative to the sourceLocation
+                var matchingFiles = sourceFiles
+                    .Where(f => f.Contains(fileName))
+                    .Select(f => f.Substring(sourceLocation.Length).TrimStart(Path.DirectorySeparatorChar))
+                    .OrderByDescending(f => NumberOfMatchingCharactersStartingFromTheEnd(file, f))
+                    .ToList();
+
+                if (matchingFiles.Count == 0)
                 {
-                    // Do nothing. Just want to know if the file is locked.
+                    continue;
                 }
 
-                return true;
+                var matchedFile = matchingFiles.First();
+                result.Add(file, matchedFile);
             }
-            catch (IOException e)
-            {
-                var errorCode = (uint)Marshal.GetHRForException(e);
-                if (errorCode != FileLocked && errorCode != PortionOfFileLocked)
-                {
-                    throw;
-                }
 
-                return false;
-            }
+            return result;
         }
 
         private static string CreateUnzipDirectory()
@@ -143,6 +127,17 @@ namespace Nanicitus.Core
             return output;
         }
 
+        private static string FormatVersion(Version version)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}.{1}.{2}.{3}",
+                version.Major,
+                version.Minor,
+                version.Build,
+                version.Revision);
+        }
+
         private static string[] GetPdbFiles(string unpackLocation)
         {
             var pdbFiles = Directory.GetFiles(unpackLocation, "*.pdb", SearchOption.AllDirectories);
@@ -169,57 +164,6 @@ namespace Nanicitus.Core
             }
 
             return counter;
-        }
-
-        private static Dictionary<string, string> CalculateRelativePaths(string sourceLocation, IEnumerable<string> files)
-        {
-            var result = new Dictionary<string, string>();
-
-            var sourceFiles = Directory.GetFiles(sourceLocation, "*.*", SearchOption.AllDirectories);
-            foreach (var file in files)
-            {
-                var fileName = Path.GetFileName(file);
-
-                // The relative path should be the file path relative to the sourceLocation
-                var matchingFiles = sourceFiles
-                    .Where(f => f.Contains(fileName))
-                    .Select(f => f.Substring(sourceLocation.Length).TrimStart(Path.DirectorySeparatorChar))
-                    .OrderByDescending(f => NumberOfMatchingCharactersStartingFromTheEnd(file, f))
-                    .ToList();
-
-                if (matchingFiles.Count == 0)
-                {
-                    continue;
-                }
-
-                var matchedFile = matchingFiles.First();
-                result.Add(file, matchedFile);
-            }
-
-            return result;
-        }
-
-        private static string BuildSourcePath(string project, string version)
-        {
-            // The string format template for the layout of the source indexing directory.
-            const string sourceStoragePathTemplate = @"{0}\{1}\";
-
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                sourceStoragePathTemplate,
-                project,
-                version);
-        }
-
-        private static string FormatVersion(Version version)
-        {
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                "{0}.{1}.{2}.{3}",
-                version.Major,
-                version.Minor,
-                version.Build,
-                version.Revision);
         }
 
         /// <summary>
@@ -333,13 +277,13 @@ namespace Nanicitus.Core
             _queue = packageQueue;
             _queue.OnEnqueue += HandleOnEnqueue;
 
-            var debuggingToolsDirectory = configuration.Value<string>(CoreConfigurationKeys.DebuggingToolsDirectory);
+            var debuggingToolsDirectory = configuration.Value(CoreConfigurationKeys.DebuggingToolsDirectory);
             _symStorePath = Path.Combine(debuggingToolsDirectory, "symstore.exe");
             _srcToolPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "srctool.exe");
             _pdbStrPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "pdbstr.exe");
-            _sourceUncPath = configuration.Value<string>(CoreConfigurationKeys.SourceIndexUncPath);
-            _symbolsUncPath = configuration.Value<string>(CoreConfigurationKeys.SymbolsIndexUncPath);
-            _processedPackagesPath = configuration.Value<string>(CoreConfigurationKeys.ProcessedPackagesPath);
+            _sourceUncPath = configuration.Value(CoreConfigurationKeys.SourceIndexUncPath);
+            _symbolsUncPath = configuration.Value(CoreConfigurationKeys.SymbolsIndexUncPath);
+            _processedPackagesPath = configuration.Value(CoreConfigurationKeys.ProcessedPackagesPath);
         }
 
         private void HandleOnEnqueue(object sender, EventArgs e)
@@ -523,40 +467,20 @@ namespace Nanicitus.Core
                 return false;
             }
 
-            package = LoadSymbolPackage(packageFile, processCount);
-            return package != null;
-        }
-
-        [SuppressMessage(
-            "Microsoft.Design",
-            "CA1031:DoNotCatchGeneralExceptionTypes",
-            Justification = "Do not want the application to crash if there is an error loading symbols.")]
-        private ZipPackage LoadSymbolPackage(string packageFile, int processCount)
-        {
-            try
-            {
-                int waitCount = 0;
-                while ((!IsAvailableForReading(packageFile)) && (waitCount < MaximumNumberOfTimesWaitingForPackageFileLock))
+            package = PackageUtilities.LoadSymbolPackage(
+                packageFile,
+                (file, e) =>
                 {
-                    waitCount++;
-                    Thread.Sleep(PackageFileLockSleepTimeInMilliSeconds);
-                }
+                    _diagnostics.Log(
+                        LevelToLog.Error,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Resources.Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException,
+                            e));
 
-                return new ZipPackage(packageFile);
-            }
-            catch (Exception e)
-            {
-                _diagnostics.Log(
-                    LevelToLog.Error,
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        Resources.Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException,
-                        e));
-
-                _lockedPackages.Enqueue(new Tuple<string, int>(packageFile, ++processCount));
-
-                return null;
-            }
+                    _lockedPackages.Enqueue(new Tuple<string, int>(file, ++processCount));
+                });
+            return package != null;
         }
 
         private string Unpack(string packageFile, string project, Version version)

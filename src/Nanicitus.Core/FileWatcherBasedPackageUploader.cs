@@ -57,7 +57,7 @@ namespace Nanicitus.Core
             _queue = packageQueue;
             _diagnostics = diagnostics;
 
-            var uploadPath = configuration.Value<string>(CoreConfigurationKeys.UploadPath);
+            var uploadPath = configuration.Value(CoreConfigurationKeys.UploadPath);
             _watcher = new FileSystemWatcher
             {
                 Path = uploadPath,
