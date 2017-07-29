@@ -18,8 +18,8 @@ namespace Nanicitus.Core.Monitoring
         /// Increments the count for the specific measurement.
         /// </summary>
         /// <param name="measurement">The name of the measurement.</param>
-        /// <param name="type">The sub-type of the measurement, e.g. the HTTP method for a HTTP request.</param>
-        void Increment(string measurement, string type = null);
+        /// <param name="tags">The tags for the measurement, e.g. the HTTP method for a HTTP request.</param>
+        void Increment(string measurement, IReadOnlyDictionary<string, string> tags = null);
 
         /// <summary>
         /// Adds a value to a measurement.

@@ -15,11 +15,13 @@ using Autofac;
 using Autofac.Integration.Mvc;
 using Autofac.Integration.WebApi;
 using Nanicitus.Core;
+using Nanicitus.Service.Monitoring;
 using Nuclei.Configuration;
 using Nuclei.Diagnostics;
 using Nuclei.Diagnostics.Logging;
 using Nuclei.Diagnostics.Logging.NLog;
 using Nuclei.Diagnostics.Metrics;
+
 using ILogger = Nuclei.Diagnostics.Logging.ILogger;
 
 namespace Nanicitus.Service
@@ -65,6 +67,7 @@ namespace Nanicitus.Service
                 RegisterConfiguration(builder);
                 RegisterLoggers(builder);
                 RegisterDiagnostics(builder);
+                RegisterMetrics(builder);
 
                 builder.RegisterModule(new NanicitusModule());
 
@@ -149,6 +152,13 @@ namespace Nanicitus.Service
                         c.Resolve<SystemDiagnostics>()))
                     .As<ITraceWriter>()
                     .SingleInstance();
+        }
+
+        private static void RegisterMetrics(ContainerBuilder builder)
+        {
+            builder.RegisterType(typeof(InfluxMetricsCollector))
+                .As<Core.Monitoring.IMetricsCollector>()
+                .SingleInstance();
         }
 
         private static void RegisterMvcControllers(ContainerBuilder builder)
