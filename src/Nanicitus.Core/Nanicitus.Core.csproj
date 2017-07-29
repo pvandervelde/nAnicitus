@@ -82,6 +82,7 @@
     <Compile Include="IIndexSymbols.cs" />
     <Compile Include="IQueueSymbolPackages.cs" />
     <Compile Include="IUploadPackages.cs" />
+    <Compile Include="Monitoring\IMetricsCollector.cs" />
     <Compile Include="NanicitusModule.cs" />
     <Compile Include="PackageQueue.cs" />
     <Compile Include="FileWatcherBasedPackageUploader.cs" />
