@@ -35,6 +35,15 @@
     <Reference Include="Consul, Version=0.6.4.7, Culture=neutral, PublicKeyToken=20a6ad9a81df1d95, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Consul.0.6.4.7\lib\net45\Consul.dll</HintPath>
     </Reference>
+    <Reference Include="Elasticsearch.Net, Version=5.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Elasticsearch.Net.5.2.0\lib\net46\Elasticsearch.Net.dll</HintPath>
+    </Reference>
+    <Reference Include="InfluxDB.Collector, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\InfluxDB.Collector.1.0.0-dev-10071\lib\net45\InfluxDB.Collector.dll</HintPath>
+    </Reference>
+    <Reference Include="InfluxDB.LineProtocol, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\InfluxDB.LineProtocol.1.0.0-dev-10071\lib\net45\InfluxDB.LineProtocol.dll</HintPath>
+    </Reference>
     <Reference Include="log4net">
       <HintPath>..\..\packages\log4net.1.2.10\lib\2.0\log4net.dll</HintPath>
     </Reference>
@@ -68,11 +77,14 @@
     <Reference Include="Mono.Cecil.Rocks, Version=0.9.6.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Mono.Cecil.0.9.6.4\lib\net45\Mono.Cecil.Rocks.dll</HintPath>
     </Reference>
-    <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Newtonsoft.Json.6.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+    <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="NLog, Version=4.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
       <HintPath>..\..\packages\NLog.4.4.11\lib\net45\NLog.dll</HintPath>
+    </Reference>
+    <Reference Include="NLog.Targets.ElasticSearch, Version=3.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\NLog.Targets.ElasticSearch.3.0.0\lib\net45\NLog.Targets.ElasticSearch.dll</HintPath>
     </Reference>
     <Reference Include="Nuclei, Version=0.9.0.0, Culture=neutral, PublicKeyToken=ee5b68ec5ad4ef93, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Nuclei.0.9.2\lib\net452\Nuclei.dll</HintPath>
@@ -157,12 +169,14 @@
     <Compile Include="ApplicationConstants.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="ConsulServiceDiscovery.cs" />
+    <Compile Include="Controllers\ServiceBaseApiController.cs" />
     <Compile Include="Controllers\ServiceController.cs" />
     <Compile Include="Controllers\SymbolsController.cs" />
     <Compile Include="DependencyInjection.cs" />
     <Compile Include="FileConstants.cs" />
     <Compile Include="IServiceDiscovery.cs" />
     <Compile Include="IServiceInfo.cs" />
+    <Compile Include="Monitoring\InfluxMetricsCollector.cs" />
     <Compile Include="NucleiBasedTraceWriter.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

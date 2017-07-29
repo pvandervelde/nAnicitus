@@ -13,10 +13,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Ionic.Zip;
+using Nanicitus.Core.Monitoring;
 using Nanicitus.Core.Properties;
 using Nuclei.Configuration;
 using Nuclei.Diagnostics;
@@ -190,6 +190,11 @@ namespace Nanicitus.Core
         private readonly SystemDiagnostics _diagnostics;
 
         /// <summary>
+        /// The object that provides the metrics for the application.
+        /// </summary>
+        private readonly IMetricsCollector _metrics;
+
+        /// <summary>
         /// The full path to the 'srctool.exe' application that is used
         /// to extract source file information from a PDB file.
         /// </summary>
@@ -248,10 +253,12 @@ namespace Nanicitus.Core
         /// </summary>
         /// <param name="packageQueue">The object that queues packages that need to be processed.</param>
         /// <param name="configuration">The configuration.</param>
+        /// <param name="metrics">The objet that provides the metrics collection methods.</param>
         /// <param name="diagnostics">The object that provides the diagnostics methods for the application.</param>
         public SymbolIndexer(
             IQueueSymbolPackages packageQueue,
             IConfiguration configuration,
+            IMetricsCollector metrics,
             SystemDiagnostics diagnostics)
         {
             if (configuration == null)
@@ -260,6 +267,7 @@ namespace Nanicitus.Core
             }
 
             _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
+            _metrics = metrics ?? throw new ArgumentNullException("metrics");
             _queue = packageQueue ?? throw new ArgumentNullException("packageQueue");
             _queue.OnEnqueue += HandleOnEnqueue;
 
@@ -362,6 +370,8 @@ namespace Nanicitus.Core
                         IndexSymbols(unpackLocation, project, version);
                         UploadSources(unpackLocation, project, version);
                         UploadSymbols(unpackLocation, project, version);
+
+                        StoreSymbolProcessMetrics(true);
                     }
                     catch (Exception e)
                     {
@@ -375,6 +385,8 @@ namespace Nanicitus.Core
                                 e,
                                 project,
                                 version));
+
+                        StoreSymbolProcessMetrics(false);
                     }
                     finally
                     {
@@ -792,6 +804,16 @@ namespace Nanicitus.Core
             catch (IOException)
             {
             }
+        }
+
+        private void StoreSymbolProcessMetrics(bool wasSuccessful)
+        {
+            _metrics.Increment(
+                "Symbols.Processed",
+                new Dictionary<string, string>
+                {
+                    { "Success", wasSuccessful.ToString() }
+                });
         }
     }
 }

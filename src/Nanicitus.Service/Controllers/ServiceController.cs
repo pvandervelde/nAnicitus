@@ -12,8 +12,8 @@ using System.Net.Http;
 using System.Text;
 using System.Web.Http;
 using Consul;
-using Microsoft.Owin;
 using Microsoft.Web.Http;
+using Nanicitus.Core.Monitoring;
 using Newtonsoft.Json;
 using Nuclei.Configuration;
 using Nuclei.Diagnostics;
@@ -26,30 +26,24 @@ namespace Nanicitus.Service.Controllers
     /// </summary>
     [ApiVersion("1.0")]
     [Route("api/v{version:apiVersion}/service/{action}")]
-    public sealed class ServiceController : ApiController
+    public sealed class ServiceController : ServiceBaseApiController
     {
-        private readonly IConfiguration _configuration;
-        private readonly SystemDiagnostics _diagnostics;
-        private readonly IServiceDiscovery _serviceDiscovery;
-        private readonly IServiceInfo _serviceInfo;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="ServiceController"/> class.
         /// </summary>
         /// <param name="configuration">The object that provides the configuration values for the application.</param>
         /// <param name="serviceDiscovery">An object that handles interaction with the service discovery system.</param>
         /// <param name="serviceInfo">Info object</param>
+        /// <param name="metrics">The metrics object.</param>
         /// <param name="diagnostics">The logging object</param>
         public ServiceController(
             IConfiguration configuration,
             IServiceDiscovery serviceDiscovery,
             IServiceInfo serviceInfo,
+            IMetricsCollector metrics,
             SystemDiagnostics diagnostics)
+            : base(configuration, serviceDiscovery, serviceInfo, metrics, diagnostics)
         {
-            _configuration = configuration ?? throw new ArgumentNullException("configuration");
-            _serviceDiscovery = serviceDiscovery ?? throw new ArgumentNullException("serviceDiscovery");
-            _serviceInfo = serviceInfo ?? throw new ArgumentNullException("serviceInfo");
-            _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
         }
 
         /// <summary>
@@ -61,15 +55,16 @@ namespace Nanicitus.Service.Controllers
         public HttpResponseMessage Activate()
         {
             LogRequestDetails(Request);
+            StoreRequestMetrics(Request);
 
-            _serviceInfo.IsActive = true;
-            _serviceInfo.IsEnabled = true;
-            _serviceInfo.IsStandby = false;
+            ServiceInfo.IsActive = true;
+            ServiceInfo.IsEnabled = true;
+            ServiceInfo.IsStandby = false;
 
             try
             {
-                var activeTag = _configuration.Value(ServiceConfigurationKeys.ServiceDiscoveryActiveTag);
-                _serviceDiscovery.UpdateTags(activeTag);
+                var activeTag = ServiceConfiguration.Value(ServiceConfigurationKeys.ServiceDiscoveryActiveTag);
+                ServiceDiscovery.UpdateTags(activeTag);
 
                 var responseMessage = new HttpResponseMessage(HttpStatusCode.OK);
 
@@ -92,14 +87,15 @@ namespace Nanicitus.Service.Controllers
         public HttpResponseMessage Disable()
         {
             LogRequestDetails(Request);
+            StoreRequestMetrics(Request);
 
-            _serviceInfo.IsActive = false;
-            _serviceInfo.IsEnabled = false;
-            _serviceInfo.IsStandby = false;
+            ServiceInfo.IsActive = false;
+            ServiceInfo.IsEnabled = false;
+            ServiceInfo.IsStandby = false;
 
             try
             {
-                _serviceDiscovery.UpdateTags();
+                ServiceDiscovery.UpdateTags();
 
                 var responseMessage = new HttpResponseMessage(HttpStatusCode.OK);
 
@@ -126,8 +122,9 @@ namespace Nanicitus.Service.Controllers
         public HttpResponseMessage Dependencies()
         {
             LogRequestDetails(Request);
+            StoreRequestMetrics(Request);
 
-            var metricsIsUp = IsWebServiceUp(_serviceDiscovery.MetricsServer);
+            var metricsIsUp = IsWebServiceUp(ServiceDiscovery.MetricsServer);
 
             var responseContent = new
             {
@@ -136,7 +133,10 @@ namespace Nanicitus.Service.Controllers
             var responseMessage = new HttpResponseMessage();
             responseMessage.StatusCode = HttpStatusCode.OK;
 
-            responseMessage.Content = new StringContent(JsonConvert.SerializeObject(responseContent), System.Text.Encoding.UTF8, "application/json");
+            responseMessage.Content = new StringContent(
+                JsonConvert.SerializeObject(responseContent),
+                Encoding.UTF8,
+                "application/json");
 
             return responseMessage;
         }
@@ -154,17 +154,18 @@ namespace Nanicitus.Service.Controllers
         public HttpResponseMessage HealthCheck()
         {
             LogRequestDetails(Request);
+            StoreRequestMetrics(Request);
 
             var responseContent = new
             {
                 ReportAsOf = DateTimeOffset.UtcNow.ToString("o", CultureInfo.InvariantCulture),
-                LastReceivedTime = default(DateTimeOffset).Equals(_serviceInfo.LastReceivedTime) ? "None" : _serviceInfo.LastReceivedTime.ToString("o", CultureInfo.InvariantCulture),
-                IsActive = _serviceInfo.IsActive,
-                IsEnabled = _serviceInfo.IsEnabled,
-                IsStandBy = _serviceInfo.IsStandby,
+                LastReceivedTime = default(DateTimeOffset).Equals(ServiceInfo.LastReceivedTime) ? "None" : ServiceInfo.LastReceivedTime.ToString("o", CultureInfo.InvariantCulture),
+                IsActive = ServiceInfo.IsActive,
+                IsEnabled = ServiceInfo.IsEnabled,
+                IsStandBy = ServiceInfo.IsStandby,
             };
 
-            var responseCode = _serviceInfo.IsEnabled ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable;
+            var responseCode = ServiceInfo.IsEnabled ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable;
             var responseMessage = new HttpResponseMessage(responseCode);
             responseMessage.Content = new StringContent(
                 JsonConvert.SerializeObject(responseContent),
@@ -188,15 +189,16 @@ namespace Nanicitus.Service.Controllers
         public HttpResponseMessage IsActive()
         {
             LogRequestDetails(Request);
+            StoreRequestMetrics(Request);
 
             var responseContent = new
             {
-                IsActive = _serviceInfo.IsActive,
-                IsEnabled = _serviceInfo.IsEnabled,
-                IsStandBy = _serviceInfo.IsStandby,
+                IsActive = ServiceInfo.IsActive,
+                IsEnabled = ServiceInfo.IsEnabled,
+                IsStandBy = ServiceInfo.IsStandby,
             };
 
-            var responseCode = _serviceInfo.IsActive ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable;
+            var responseCode = ServiceInfo.IsActive ? HttpStatusCode.OK : HttpStatusCode.ServiceUnavailable;
             var responseMessage = new HttpResponseMessage(responseCode);
             responseMessage.Content = new StringContent(
                 JsonConvert.SerializeObject(responseContent),
@@ -215,14 +217,15 @@ namespace Nanicitus.Service.Controllers
         public HttpResponseMessage Standby()
         {
             LogRequestDetails(Request);
+            StoreRequestMetrics(Request);
 
-            _serviceInfo.IsActive = false;
-            _serviceInfo.IsEnabled = true;
-            _serviceInfo.IsStandby = true;
+            ServiceInfo.IsActive = false;
+            ServiceInfo.IsEnabled = true;
+            ServiceInfo.IsStandby = true;
 
             try
             {
-                _serviceDiscovery.UpdateTags();
+                ServiceDiscovery.UpdateTags();
 
                 var responseMessage = new HttpResponseMessage(HttpStatusCode.OK);
 
@@ -249,21 +252,22 @@ namespace Nanicitus.Service.Controllers
         public HttpResponseMessage Status()
         {
             LogRequestDetails(Request);
+            StoreRequestMetrics(Request);
 
             var responseContent = new
             {
-                ServiceId = _serviceInfo.ServiceId,
+                ServiceId = ServiceInfo.ServiceId,
                 CurrentTime = DateTimeOffset.UtcNow.ToString("o", CultureInfo.InvariantCulture),
-                MachineName = _serviceInfo.MachineName,
-                OSName = _serviceInfo.OSName,
-                Version = _serviceInfo.AssemblyVersion.ToString(),
-                GitSHA = _serviceInfo.GitSHA,
-                BuildTime = _serviceInfo.BuildTime,
-                UpDuration = (DateTimeOffset.UtcNow - _serviceInfo.StartTime).ToString(),
-                UpSince = _serviceInfo.StartTime.ToString("o", CultureInfo.InvariantCulture),
-                IsEnabled = _serviceInfo.IsEnabled,
-                IsStandBy = _serviceInfo.IsStandby,
-                IsActive = _serviceInfo.IsActive,
+                MachineName = ServiceInfo.MachineName,
+                OSName = ServiceInfo.OSName,
+                Version = ServiceInfo.AssemblyVersion.ToString(),
+                GitSHA = ServiceInfo.GitSHA,
+                BuildTime = ServiceInfo.BuildTime,
+                UpDuration = (DateTimeOffset.UtcNow - ServiceInfo.StartTime).ToString(),
+                UpSince = ServiceInfo.StartTime.ToString("o", CultureInfo.InvariantCulture),
+                IsEnabled = ServiceInfo.IsEnabled,
+                IsStandBy = ServiceInfo.IsStandby,
+                IsActive = ServiceInfo.IsActive,
             };
 
             var responseMessage = new HttpResponseMessage(HttpStatusCode.OK);
@@ -297,43 +301,12 @@ namespace Nanicitus.Service.Controllers
                     return true;
                 }
 
-                _diagnostics.Log(
+                Diagnostics.Log(
                     LevelToLog.Error,
                     "{0}",
                     ex.ToString());
                 return false;
             }
-        }
-
-        /// <summary>
-        /// Logs the IP address, method and URI of an incoming request
-        /// </summary>
-        /// <param name="request">The trace record to log</param>
-        private void LogRequestDetails(HttpRequestMessage request)
-        {
-            if (request == null)
-            {
-                return;
-            }
-
-            var messageBuilder = new StringBuilder();
-
-            // Get the ip address of the request
-            if (request.Properties.ContainsKey("MS_OwinContext"))
-            {
-                var context = request.Properties["MS_OwinContext"] as OwinContext;
-                if (context != null)
-                {
-                    var ip = context.Request.RemoteIpAddress;
-                    messageBuilder.AppendFormat(CultureInfo.InvariantCulture, "Request from {0} ", ip);
-                }
-            }
-
-            messageBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0} {1}", request.Method.Method, request.RequestUri);
-
-            _diagnostics.Log(
-                LevelToLog.Trace,
-                messageBuilder.ToString());
         }
     }
 }

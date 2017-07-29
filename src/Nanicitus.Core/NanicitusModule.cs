@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------
 
 using Autofac;
+using Nanicitus.Core.Monitoring;
 using Nuclei.Configuration;
 using Nuclei.Diagnostics;
 
@@ -25,6 +26,7 @@ namespace Nanicitus.Core
             builder.Register(c => new SymbolIndexer(
                     c.Resolve<IQueueSymbolPackages>(),
                     c.Resolve<IConfiguration>(),
+                    c.Resolve<IMetricsCollector>(),
                     c.Resolve<SystemDiagnostics>()))
                 .As<IIndexSymbols>()
                 .SingleInstance();
