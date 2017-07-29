@@ -1,10 +1,15 @@
-﻿using System;
+﻿//-----------------------------------------------------------------------
+// <copyright company="nAnicitus">
+// Copyright (c) nAnicitus. All rights reserved.
+// Licensed under the Apache License, Version 2.0 license. See LICENCE.md file in the project root for full license information.
+// </copyright>
+//-----------------------------------------------------------------------
+
+using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
-using System.Threading.Tasks;
 using System.Web.Http;
 using Microsoft.Owin;
 using Nanicitus.Core.Monitoring;
@@ -124,6 +129,11 @@ namespace Nanicitus.Service.Controllers
         /// <param name="request">The request</param>
         protected void StoreRequestMetrics(HttpRequestMessage request)
         {
+            if (request == null)
+            {
+                return;
+            }
+
             _metrics.Write(
                 "Symbols.HttpRequest",
                 new Dictionary<string, object>
