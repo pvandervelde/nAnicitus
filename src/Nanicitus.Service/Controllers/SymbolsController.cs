@@ -11,12 +11,10 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
-using System.Threading.Tasks;
 using System.Web.Http;
-using Microsoft.Owin;
 using Microsoft.Web.Http;
 using Nanicitus.Core;
+using Nanicitus.Core.Monitoring;
 using Nuclei.Configuration;
 using Nuclei.Diagnostics;
 using Nuclei.Diagnostics.Logging;
@@ -28,26 +26,24 @@ namespace Nanicitus.Service.Controllers
     /// </summary>
     [ApiVersion("1.0")]
     [Route("api/v{version:apiVersion}/symbols/{action}")]
-    public sealed class SymbolsController : ApiController
+    public sealed class SymbolsController : ServiceBaseApiController
     {
-        private readonly IConfiguration _configuration;
-        private readonly SystemDiagnostics _diagnostics;
-        private readonly IServiceInfo _serviceInfo;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="SymbolsController"/> class.
         /// </summary>
         /// <param name="configuration">The object that provides the configuration values for the application.</param>
+        /// <param name="serviceDiscovery">An object that handles interaction with the service discovery system.</param>
         /// <param name="serviceInfo">Info object</param>
+        /// <param name="metrics">The metrics object.</param>
         /// <param name="diagnostics">The logging object</param>
         public SymbolsController(
             IConfiguration configuration,
+            IServiceDiscovery serviceDiscovery,
             IServiceInfo serviceInfo,
+            IMetricsCollector metrics,
             SystemDiagnostics diagnostics)
+            : base(configuration, serviceDiscovery, serviceInfo, metrics, diagnostics)
         {
-            _configuration = configuration ?? throw new ArgumentNullException("configuration");
-            _serviceInfo = serviceInfo ?? throw new ArgumentNullException("serviceInfo");
-            _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
         }
 
         /// <summary>
@@ -58,14 +54,15 @@ namespace Nanicitus.Service.Controllers
         public HttpResponseMessage Upload()
         {
             LogRequestDetails(Request);
+            StoreRequestMetrics(Request);
 
-            if (!_serviceInfo.IsActive)
+            if (!ServiceInfo.IsActive)
             {
                 return Request.CreateResponse(HttpStatusCode.ServiceUnavailable);
             }
 
-            var tempPath = _configuration.Value(ServiceConfigurationKeys.TempPath);
-            var uploadPath = _configuration.Value(CoreConfigurationKeys.UploadPath);
+            var tempPath = ServiceConfiguration.Value(ServiceConfigurationKeys.TempPath);
+            var uploadPath = ServiceConfiguration.Value(CoreConfigurationKeys.UploadPath);
             if (Request.Content.IsMimeMultipartContent())
             {
                 var streamProvider = new ProvidedFileNameMultipartFormDataStreamProvider(tempPath);
@@ -76,11 +73,11 @@ namespace Nanicitus.Service.Controllers
                 }
                 catch (AggregateException e)
                 {
-                    _diagnostics.Log(LevelToLog.Error, e.ToString());
+                    Diagnostics.Log(LevelToLog.Error, e.ToString());
                 }
 
                 var receivedAllFiles = true;
-                foreach (MultipartFileData fileData in streamProvider.FileData)
+                foreach (var fileData in streamProvider.FileData)
                 {
                     // Turn the file into a nuget package and then move it to the
                     // storage location
@@ -88,7 +85,7 @@ namespace Nanicitus.Service.Controllers
                         fileData.LocalFileName,
                         (file, e) =>
                         {
-                            _diagnostics.Log(
+                            Diagnostics.Log(
                                 LevelToLog.Error,
                                 string.Format(
                                     CultureInfo.InvariantCulture,
@@ -104,6 +101,7 @@ namespace Nanicitus.Service.Controllers
                             package.Version);
 
                         File.Move(fileData.LocalFileName, Path.Combine(uploadPath, fileName));
+                        Metrics.Increment("Symbols.Uploaded");
                     }
                     else
                     {
@@ -127,37 +125,6 @@ namespace Nanicitus.Service.Controllers
             return Request.CreateResponse(
                 HttpStatusCode.NotAcceptable,
                 "Expected the request content to either be a stream.");
-        }
-
-        /// <summary>
-        /// Logs the IP address, method and URI of an incoming request
-        /// </summary>
-        /// <param name="request">The trace record to log</param>
-        private void LogRequestDetails(HttpRequestMessage request)
-        {
-            if (request == null)
-            {
-                return;
-            }
-
-            var messageBuilder = new StringBuilder();
-
-            // Get the ip address of the request
-            if (request.Properties.ContainsKey("MS_OwinContext"))
-            {
-                var context = request.Properties["MS_OwinContext"] as OwinContext;
-                if (context != null)
-                {
-                    var ip = context.Request.RemoteIpAddress;
-                    messageBuilder.AppendFormat(CultureInfo.InvariantCulture, "Request from {0} ", ip);
-                }
-            }
-
-            messageBuilder.AppendFormat(CultureInfo.InvariantCulture, "{0} {1}", request.Method.Method, request.RequestUri);
-
-            _diagnostics.Log(
-                LevelToLog.Trace,
-                messageBuilder.ToString());
         }
 
         private sealed class ProvidedFileNameMultipartFormDataStreamProvider : MultipartFormDataStreamProvider

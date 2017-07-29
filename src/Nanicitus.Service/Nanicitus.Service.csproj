@@ -163,6 +163,7 @@
     <Compile Include="ApplicationConstants.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="ConsulServiceDiscovery.cs" />
+    <Compile Include="Controllers\ServiceBaseApiController.cs" />
     <Compile Include="Controllers\ServiceController.cs" />
     <Compile Include="Controllers\SymbolsController.cs" />
     <Compile Include="DependencyInjection.cs" />
