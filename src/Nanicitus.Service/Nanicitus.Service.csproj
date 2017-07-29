@@ -35,6 +35,12 @@
     <Reference Include="Consul, Version=0.6.4.7, Culture=neutral, PublicKeyToken=20a6ad9a81df1d95, processorArchitecture=MSIL">
       <HintPath>..\..\packages\Consul.0.6.4.7\lib\net45\Consul.dll</HintPath>
     </Reference>
+    <Reference Include="InfluxDB.Collector, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\InfluxDB.Collector.1.0.0-dev-10071\lib\net45\InfluxDB.Collector.dll</HintPath>
+    </Reference>
+    <Reference Include="InfluxDB.LineProtocol, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\InfluxDB.LineProtocol.1.0.0-dev-10071\lib\net45\InfluxDB.LineProtocol.dll</HintPath>
+    </Reference>
     <Reference Include="log4net">
       <HintPath>..\..\packages\log4net.1.2.10\lib\2.0\log4net.dll</HintPath>
     </Reference>
@@ -163,6 +169,7 @@
     <Compile Include="FileConstants.cs" />
     <Compile Include="IServiceDiscovery.cs" />
     <Compile Include="IServiceInfo.cs" />
+    <Compile Include="Monitoring\InfluxMetricsCollector.cs" />
     <Compile Include="NucleiBasedTraceWriter.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

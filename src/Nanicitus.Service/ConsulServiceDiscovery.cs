@@ -68,7 +68,9 @@ namespace Nanicitus.Service
         private readonly SystemDiagnostics _diagnostics;
 
         private string _consulAddress = null;
+        private string _consulDomain = null;
         private string _consulEnvironment = null;
+        private string _metricsServer = null;
 
         public ConsulServiceDiscovery(IConfiguration configuration, SystemDiagnostics diagnostics)
         {
@@ -87,6 +89,20 @@ namespace Nanicitus.Service
                 }
 
                 return _consulAddress;
+            }
+        }
+
+        private string ConsulDomain
+        {
+            get
+            {
+                if (_consulDomain == null)
+                {
+                    var configRequestResponse = _consulClient.Agent.Self().Result.Response;
+                    _consulDomain = configRequestResponse["Config"]["Domain"].ToString();
+                }
+
+                return _consulDomain;
             }
         }
 
@@ -147,7 +163,34 @@ namespace Nanicitus.Service
         /// <returns>String of metrics uri and port</returns>
         public string MetricsServer
         {
-            get;
+            get
+            {
+                if (_metricsServer == null)
+                {
+                    // We assume that potential multiple instances of the metrics server are hidden behind a load balancer
+                    // Therefore we expect zero or one response here
+                    var metricsServiceName = _configuration.Value(ServiceConfigurationKeys.MetricsServiceName);
+                    var metricsTag = _configuration.Value(ServiceConfigurationKeys.MetricsServiceTag);
+                    var metricsRequestResponse = _consulClient.Catalog.Node(metricsServiceName).Result.Response;
+                    var metricsServices = metricsRequestResponse.Services.Where(s => s.Value.Service.Equals(metricsTag));
+
+                    if (metricsServices.Any())
+                    {
+                        var metricsService = metricsServices.First();
+                        _metricsServer = string.Format(
+                            CultureInfo.InvariantCulture,
+                            "http://{0}.{1}.service.{2}:{3}",
+                            metricsTag,
+                            metricsServiceName,
+                            ConsulDomain,
+                            metricsService.Value.Port == 0
+                                ? 8086
+                                : metricsService.Value.Port);
+                    }
+                }
+
+                return _metricsServer;
+            }
         }
 
         /// <summary>

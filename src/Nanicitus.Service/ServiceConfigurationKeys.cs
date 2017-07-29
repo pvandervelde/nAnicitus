@@ -24,6 +24,27 @@ namespace Nanicitus.Service
             = new ConfigurationKey<string>("LogPath");
 
         /// <summary>
+        /// The configuration key that is used to retrieve the name of the time series
+        /// database into which the metrics for the application are stored.
+        /// </summary>
+        public static readonly ConfigurationKey<string> MetricsDatabaseName
+            = new ConfigurationKey<string>("MetricsDatabaseName");
+
+        /// <summary>
+        /// The configuration key that is used to retrieve the service discovery name
+        /// of the metrics service.
+        /// </summary>
+        public static readonly ConfigurationKey<string> MetricsServiceName
+            = new ConfigurationKey<string>("MetricsServiceName");
+
+        /// <summary>
+        /// The configuration key that is used to retrieve the service discovery tag
+        /// of the metrics service.
+        /// </summary>
+        public static readonly ConfigurationKey<string> MetricsServiceTag
+            = new ConfigurationKey<string>("MetricsServiceTag");
+
+        /// <summary>
         /// The configuration key that is used to retrieve the interval on which the health check
         /// should take place.
         /// </summary>
@@ -80,6 +101,9 @@ namespace Nanicitus.Service
             {
                 { ConfigurationKeys.ConsulAddress, "http://localhost:8500" },
                 { LogPath, FileConstants.LogPath() },
+                { MetricsDatabaseName, "symbols" },
+                { MetricsServiceName, "metrics" },
+                { MetricsServiceTag, "active" },
                 { ServiceDiscoveryHealthCheckIntervalInSeconds, 300 },
                 { ServiceDiscoveryName, Resources.Service_ServiceName },
                 { ServiceDiscoveryActiveTag, "active" },
