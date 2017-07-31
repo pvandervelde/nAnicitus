@@ -52,7 +52,7 @@ namespace Nanicitus.Service.Monitoring
         /// <param name="tags">The tags for the measurement, e.g. the HTTP method for a HTTP request.</param>
         public void Increment(string measurement, IReadOnlyDictionary<string, string> tags = null)
         {
-            _metricsCollector.Increment(
+            _metricsCollector?.Increment(
                 measurement,
                 tags: tags);
         }
@@ -65,7 +65,7 @@ namespace Nanicitus.Service.Monitoring
         /// <param name="value">The current value of the measurement.</param>
         public void Measure(string measurement, string type, object value)
         {
-            _metricsCollector.Measure(
+            _metricsCollector?.Measure(
                 measurement,
                 value,
                 tags: new Dictionary<string, string>
@@ -85,7 +85,7 @@ namespace Nanicitus.Service.Monitoring
             IReadOnlyDictionary<string, object> fields,
             IReadOnlyDictionary<string, string> tags)
         {
-            _metricsCollector.Write(
+            _metricsCollector?.Write(
                 measurement,
                 fields,
                 tags);
@@ -93,25 +93,28 @@ namespace Nanicitus.Service.Monitoring
 
         private void InitialiseMetricsCollector()
         {
-            var databaseName = _configuration.Value(ServiceConfigurationKeys.MetricsDatabaseName);
             var metricsServer = _serviceDiscovery.MetricsServer;
-            var consulEnvironment = _serviceDiscovery.Environment;
+            if (metricsServer != null)
+            {
+                var databaseName = _configuration.Value(ServiceConfigurationKeys.MetricsDatabaseName);
+                var consulEnvironment = _serviceDiscovery.Environment;
 
-            _metricsCollector = new CollectorConfiguration()
-                .Tag.With("host", Environment.GetEnvironmentVariable("COMPUTERNAME"))
-                .Tag.With("environment", consulEnvironment)
-                .Tag.With("stage", "Receiver")
-                .Batch.AtInterval(TimeSpan.FromSeconds(2))
-                .WriteTo.InfluxDB(metricsServer, databaseName)
-                .CreateCollector();
+                _metricsCollector = new CollectorConfiguration()
+                    .Tag.With("host", Environment.GetEnvironmentVariable("COMPUTERNAME"))
+                    .Tag.With("environment", consulEnvironment)
+                    .Tag.With("stage", "Receiver")
+                    .Batch.AtInterval(TimeSpan.FromSeconds(2))
+                    .WriteTo.InfluxDB(metricsServer, databaseName)
+                    .CreateCollector();
 
-            // Output _metricsCollector errors to _logger
-            CollectorLog.RegisterErrorHandler(
-                (m, e) => _diagnostics.Log(
-                    LevelToLog.Error,
-                    "{0} - {1}",
-                    m,
-                    e));
+                // Output _metricsCollector errors to _logger
+                CollectorLog.RegisterErrorHandler(
+                    (m, e) => _diagnostics.Log(
+                        LevelToLog.Error,
+                        "{0} - {1}",
+                        m,
+                        e));
+            }
         }
     }
 }
