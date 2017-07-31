@@ -36,16 +36,19 @@ namespace Nanicitus.Core
         /// </summary>
         private const int MaximumNumberOfTimesPackageCanBeProcessed = 3;
 
-        private static string BuildSourcePath(string project, string version)
+        private static string BuildSourcePath(string rootUri, string project, string version, string file)
         {
             // The string format template for the layout of the source indexing directory.
-            const string sourceStoragePathTemplate = @"{0}\{1}\";
+            const string sourceStoragePathTemplate = @"{1}{0}{2}{0}{3}{0}{4}";
 
             return string.Format(
                 CultureInfo.InvariantCulture,
                 sourceStoragePathTemplate,
+                DetermineSeparatingCharacter(rootUri),
+                rootUri,
                 project,
-                version);
+                version,
+                file);
         }
 
         private static Dictionary<string, string> CalculateRelativePaths(string sourceLocation, IEnumerable<string> files)
@@ -100,6 +103,16 @@ namespace Nanicitus.Core
             }
 
             return path;
+        }
+
+        private static string DetermineSeparatingCharacter(string rootUri)
+        {
+            var uri = new Uri(rootUri);
+            var separatingCharacter = (uri.IsUnc || uri.IsFile)
+                ? "\\"
+                : "/";
+
+            return separatingCharacter;
         }
 
         /// <summary>
@@ -185,6 +198,11 @@ namespace Nanicitus.Core
         private readonly IQueueSymbolPackages _queue;
 
         /// <summary>
+        /// The object that stores the configuration for the application.
+        /// </summary>
+        private readonly IConfiguration _configuration;
+
+        /// <summary>
         /// The object that provides the diagnostics methods for the application.
         /// </summary>
         private readonly SystemDiagnostics _diagnostics;
@@ -211,22 +229,6 @@ namespace Nanicitus.Core
         /// to store the symbols.
         /// </summary>
         private readonly string _symStorePath;
-
-        /// <summary>
-        /// The UNC path to the location where the sources are indexed.
-        /// </summary>
-        private readonly string _sourceUncPath;
-
-        /// <summary>
-        /// The UNC path to the location where the symbols are indexed.
-        /// </summary>
-        private readonly string _symbolsUncPath;
-
-        /// <summary>
-        /// The full path to the location where the processed packages are stored
-        /// in case they are needed at a later stage.
-        /// </summary>
-        private readonly string _processedPackagesPath;
 
         /// <summary>
         /// The directory in which the packages will be unzipped.
@@ -261,11 +263,7 @@ namespace Nanicitus.Core
             IMetricsCollector metrics,
             SystemDiagnostics diagnostics)
         {
-            if (configuration == null)
-            {
-                throw new ArgumentNullException("configuration");
-            }
-
+            _configuration = configuration ?? throw new ArgumentNullException("configuration");
             _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
             _metrics = metrics ?? throw new ArgumentNullException("metrics");
             _queue = packageQueue ?? throw new ArgumentNullException("packageQueue");
@@ -275,9 +273,6 @@ namespace Nanicitus.Core
             _symStorePath = Path.Combine(debuggingToolsDirectory, "symstore.exe");
             _srcToolPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "srctool.exe");
             _pdbStrPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "pdbstr.exe");
-            _sourceUncPath = configuration.Value(CoreConfigurationKeys.SourceIndexUncPath);
-            _symbolsUncPath = configuration.Value(CoreConfigurationKeys.SymbolsIndexUncPath);
-            _processedPackagesPath = configuration.Value(CoreConfigurationKeys.ProcessedPackagesPath);
         }
 
         private void HandleOnEnqueue(object sender, EventArgs e)
@@ -517,6 +512,7 @@ namespace Nanicitus.Core
         /// <param name="version">The version of the project for which the PDBs are published.</param>
         private void IndexSymbols(string unpackLocation, string project, Version version)
         {
+            var sourceServerUrl = _configuration.Value(CoreConfigurationKeys.SourceServerUrl);
             var sourceLocation = Path.Combine(unpackLocation, "src");
 
             var pdbFiles = GetPdbFiles(unpackLocation);
@@ -540,8 +536,7 @@ namespace Nanicitus.Core
                     writer.WriteLine("VERCTRL=http");
                     writer.WriteLine("SRCSRV: variables ------------------------------------------");
                     writer.WriteLine("SRCSRVVERCTRL=http");
-                    writer.WriteLine("UNCROOT=" + _sourceUncPath);
-                    writer.WriteLine("HTTP_EXTRACT_TARGET=%UNCROOT%\\" + BuildSourcePath("%var2%", "%var3%") + "%var4%");
+                    writer.WriteLine("HTTP_EXTRACT_TARGET=" + BuildSourcePath(sourceServerUrl, "%var2%", "%var3%", "%var4%"));
                     writer.WriteLine("SRCSRVTRG=%http_extract_target%");
                     writer.WriteLine("SRCSRVCMD=");
                     writer.WriteLine("SRCSRV: source files ---------------------------------------");
@@ -565,11 +560,12 @@ namespace Nanicitus.Core
                     }
 
                     // Iterate files. Add path to file in SRCSRV stream
+                    var pathSeparator = DetermineSeparatingCharacter(sourceServerUrl);
                     foreach (var file in files)
                     {
                         if (relativePathMap.ContainsKey(file))
                         {
-                            var relativeFile = relativePathMap[file];
+                            var relativeFile = relativePathMap[file].Replace(Path.DirectorySeparatorChar.ToString(), pathSeparator);
 
                             writer.Write(file);
                             writer.Write("*");
@@ -616,7 +612,12 @@ namespace Nanicitus.Core
 
         private void UploadSources(string unpackLocation, string project, Version version)
         {
-            var destination = Path.Combine(_sourceUncPath, BuildSourcePath(project, FormatVersion(version)));
+            var processedSourcePath = _configuration.Value(CoreConfigurationKeys.ProcessedSourcePath);
+            var destination = BuildSourcePath(
+                    processedSourcePath,
+                    project,
+                    FormatVersion(version),
+                    string.Empty);
 
             var sourceLocation = Path.Combine(unpackLocation, "src");
             var srcFiles = Directory.GetFiles(sourceLocation, "*.*", SearchOption.AllDirectories);
@@ -657,6 +658,7 @@ namespace Nanicitus.Core
 
         private void UploadSymbols(string unpackLocation, string project, Version version)
         {
+            var processedSymbolPath = _configuration.Value(CoreConfigurationKeys.ProcessedSymbolsPath);
             var pdbFiles = GetPdbFiles(unpackLocation);
             foreach (var path in pdbFiles)
             {
@@ -673,7 +675,7 @@ namespace Nanicitus.Core
                     CultureInfo.InvariantCulture,
                     "add /f \"{0}\" /s \"{1}\" /t \"{2}\" /v {3}",
                     path,
-                    _symbolsUncPath,
+                    processedSymbolPath,
                     project,
                     version);
                 var output = Execute(_symStorePath, symStoreArguments);
@@ -704,12 +706,13 @@ namespace Nanicitus.Core
 
             try
             {
-                if (!Directory.Exists(_processedPackagesPath))
+                var processedPackagesPath = _configuration.Value(CoreConfigurationKeys.ProcessedPackagesPath);
+                if (!Directory.Exists(processedPackagesPath))
                 {
-                    Directory.CreateDirectory(_processedPackagesPath);
+                    Directory.CreateDirectory(processedPackagesPath);
                 }
 
-                var newPath = Path.Combine(_processedPackagesPath, Path.GetFileName(packageFile));
+                var newPath = Path.Combine(processedPackagesPath, Path.GetFileName(packageFile));
                 File.Move(packageFile, newPath);
             }
             catch (IOException e)

@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Nuclei;
 using Nuclei.Configuration;
@@ -33,30 +34,33 @@ namespace Nanicitus.Core
 
         private static string DefaultSymbolServerToolsDirectory()
         {
-            return Environment.Is64BitProcess
-                ? @"C:\Program Files (x86)\Windows Kits\8.0\Debuggers\x64"
-                : @"C:\Program Files (x86)\Windows Kits\8.0\Debuggers\x86";
+            var possibleLocations = new[]
+            {
+                @"C:\Program Files (x86)\Windows Kits\10\Debuggers",
+                @"C:\Program Files (x86)\Windows Kits\8.1\Debuggers",
+                @"C:\Program Files (x86)\Windows Kits\8.0\Debuggers",
+                @"C:\Program Files (x86)\Windows Kits\7.1\Debuggers",
+                @"C:\Program Files (x86)\Windows Kits\7.0\Debuggers",
+            };
+
+            // Find the suitable windows kit
+            var path = possibleLocations
+                .Where(p => Directory.Exists(p))
+                .FirstOrDefault();
+
+            var bitness = Environment.Is64BitOperatingSystem
+                ? "x64"
+                : "x86";
+
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                return Path.Combine(path, bitness);
+            }
+            else
+            {
+                return Assembly.GetExecutingAssembly().LocalDirectoryPath();
+            }
         }
-
-        /// <summary>
-        /// The configuration key that is used to retrieve UNC path for the source index directory.
-        /// </summary>
-        [SuppressMessage(
-            "Microsoft.Security",
-            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
-            Justification = "ConfigurationKey objects are immutable.")]
-        public static readonly ConfigurationKey<string> SourceIndexUncPath
-            = new ConfigurationKey<string>("SourceIndexUncPath");
-
-        /// <summary>
-        /// The configuration key that is used to retrieve UNC path for the symbols directory.
-        /// </summary>
-        [SuppressMessage(
-            "Microsoft.Security",
-            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
-            Justification = "ConfigurationKey objects are immutable.")]
-        public static readonly ConfigurationKey<string> SymbolsIndexUncPath
-            = new ConfigurationKey<string>("SymbolsIndexUncPath");
 
         /// <summary>
         /// The configuration key that is used to retrieve path for the directory in
@@ -68,6 +72,48 @@ namespace Nanicitus.Core
             Justification = "ConfigurationKey objects are immutable.")]
         public static readonly ConfigurationKey<string> ProcessedPackagesPath
             = new ConfigurationKey<string>("ProcessedPackagesPath");
+
+        /// <summary>
+        /// The configuration key that is used to retrieve UNC path for the source index directory.
+        /// </summary>
+        [SuppressMessage(
+            "Microsoft.Security",
+            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
+            Justification = "ConfigurationKey objects are immutable.")]
+        public static readonly ConfigurationKey<string> ProcessedSourcePath
+            = new ConfigurationKey<string>("ProcessedSourcePath");
+
+        /// <summary>
+        /// The configuration key that is used to retrieve UNC path for the symbols directory.
+        /// </summary>
+        [SuppressMessage(
+            "Microsoft.Security",
+            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
+            Justification = "ConfigurationKey objects are immutable.")]
+        public static readonly ConfigurationKey<string> ProcessedSymbolsPath
+            = new ConfigurationKey<string>("ProcessedSymbolsPath");
+
+        /// <summary>
+        /// The configuration key that is used to retrieve the URL of the source server
+        /// as it will be used by the developers.
+        /// </summary>
+        [SuppressMessage(
+            "Microsoft.Security",
+            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
+            Justification = "ConfigurationKey objects are immutable.")]
+        public static readonly ConfigurationKey<string> SourceServerUrl
+            = new ConfigurationKey<string>("SourceServerUrl");
+
+        /// <summary>
+        /// The configuration key that is used to retrieve the URL of the symbol server
+        /// as it will be used by the developers.
+        /// </summary>
+        [SuppressMessage(
+            "Microsoft.Security",
+            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
+            Justification = "ConfigurationKey objects are immutable.")]
+        public static readonly ConfigurationKey<string> SymbolServerUrl
+            = new ConfigurationKey<string>("SymbolServerUrl");
 
         /// <summary>
         /// The configuration key that is used to retrieve path for the directory in
@@ -89,9 +135,11 @@ namespace Nanicitus.Core
             return new Dictionary<ConfigurationKeyBase, object>
                 {
                     { DebuggingToolsDirectory, DefaultSymbolServerToolsDirectory() },
-                    { SourceIndexUncPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "sources") },
-                    { SymbolsIndexUncPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "symbols") },
                     { ProcessedPackagesPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "processed") },
+                    { ProcessedSourcePath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "sources") },
+                    { ProcessedSymbolsPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "symbols") },
+                    { SourceServerUrl, "http://example.com/sources" },
+                    { SymbolServerUrl, "http://example.com/symbols" },
                     { UploadPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "uploads") },
                 };
         }
