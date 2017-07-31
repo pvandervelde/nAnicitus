@@ -26,29 +26,32 @@ namespace Nanicitus.Service
         {
             return new[]
                 {
-                    new AgentServiceCheck
+                    new AgentCheckRegistration
                     {
                         HTTP = string.Format(
                             CultureInfo.InvariantCulture,
                             "http://localhost:{0}/api/v1/service/dependencies",
                             port),
-                        Interval = new TimeSpan(0, 0, healthIntervalInSeconds)
+                        Interval = new TimeSpan(0, 0, healthIntervalInSeconds),
+                        Name = "dependencies",
                     },
-                    new AgentServiceCheck
+                    new AgentCheckRegistration
                     {
                         HTTP = string.Format(
                             CultureInfo.InvariantCulture,
                             "http://localhost:{0}/api/v1/service/healthcheck",
                             port),
-                        Interval = new TimeSpan(0, 0, healthIntervalInSeconds)
+                        Interval = new TimeSpan(0, 0, healthIntervalInSeconds),
+                        Name = "health",
                     },
-                    new AgentServiceCheck
+                    new AgentCheckRegistration
                     {
                         HTTP = string.Format(
                             CultureInfo.InvariantCulture,
                             "http://localhost:{0}/api/v1/service/isactive",
                             port),
-                        Interval = new TimeSpan(0, 0, healthIntervalInSeconds)
+                        Interval = new TimeSpan(0, 0, healthIntervalInSeconds),
+                        Name = "isactive",
                     },
                 };
         }
@@ -172,20 +175,23 @@ namespace Nanicitus.Service
                     var metricsServiceName = _configuration.Value(ServiceConfigurationKeys.MetricsServiceName);
                     var metricsTag = _configuration.Value(ServiceConfigurationKeys.MetricsServiceTag);
                     var metricsRequestResponse = _consulClient.Catalog.Node(metricsServiceName).Result.Response;
-                    var metricsServices = metricsRequestResponse.Services.Where(s => s.Value.Service.Equals(metricsTag));
 
-                    if (metricsServices.Any())
+                    if (metricsRequestResponse != null)
                     {
-                        var metricsService = metricsServices.First();
-                        _metricsServer = string.Format(
-                            CultureInfo.InvariantCulture,
-                            "http://{0}.{1}.service.{2}:{3}",
-                            metricsTag,
-                            metricsServiceName,
-                            ConsulDomain,
-                            metricsService.Value.Port == 0
-                                ? 8086
-                                : metricsService.Value.Port);
+                        var metricsServices = metricsRequestResponse.Services.Where(s => s.Value.Service.Equals(metricsTag));
+                        if (metricsServices.Any())
+                        {
+                            var metricsService = metricsServices.First();
+                            _metricsServer = string.Format(
+                                CultureInfo.InvariantCulture,
+                                "http://{0}.{1}.service.{2}:{3}",
+                                metricsTag,
+                                metricsServiceName,
+                                ConsulDomain,
+                                metricsService.Value.Port == 0
+                                    ? 8086
+                                    : metricsService.Value.Port);
+                        }
                     }
                 }
 
