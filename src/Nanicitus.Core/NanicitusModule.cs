@@ -35,11 +35,12 @@ namespace Nanicitus.Core
                 .As<IQueueSymbolPackages>()
                 .SingleInstance();
 
-            builder.Register(c => new FileWatcherBasedPackageUploader(
+            builder.Register(c => new SymbolProcessor(
+                    c.Resolve<IIndexSymbols>(),
                     c.Resolve<IQueueSymbolPackages>(),
-                    c.Resolve<IConfiguration>(),
+                    c.Resolve<IMetricsCollector>(),
                     c.Resolve<SystemDiagnostics>()))
-                .As<IUploadPackages>()
+                .As<ISymbolProcessor>()
                 .SingleInstance();
         }
     }

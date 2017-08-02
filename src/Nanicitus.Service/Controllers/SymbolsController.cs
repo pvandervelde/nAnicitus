@@ -28,15 +28,19 @@ namespace Nanicitus.Service.Controllers
     [Route("api/v{version:apiVersion}/symbols/{action}")]
     public sealed class SymbolsController : ServiceBaseApiController
     {
+        private readonly ISymbolProcessor _symbolProcessor;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SymbolsController"/> class.
         /// </summary>
+        /// <param name="symbolProcessor">The object that processes the symbol packages.</param>
         /// <param name="configuration">The object that provides the configuration values for the application.</param>
         /// <param name="serviceDiscovery">An object that handles interaction with the service discovery system.</param>
         /// <param name="serviceInfo">Info object</param>
         /// <param name="metrics">The metrics object.</param>
         /// <param name="diagnostics">The logging object</param>
         public SymbolsController(
+            ISymbolProcessor symbolProcessor,
             IConfiguration configuration,
             IServiceDiscovery serviceDiscovery,
             IServiceInfo serviceInfo,
@@ -44,12 +48,33 @@ namespace Nanicitus.Service.Controllers
             SystemDiagnostics diagnostics)
             : base(configuration, serviceDiscovery, serviceInfo, metrics, diagnostics)
         {
+            _symbolProcessor = symbolProcessor ?? throw new ArgumentNullException("symbolProcessor");
+        }
+
+        /// <summary>
+        /// Reindexes all the symbol packages and rebuilds the symbol and source stores.
+        /// </summary>
+        /// <returns>The http resonse message with the return code of the operation.</returns>
+        [HttpPut]
+        public HttpResponseMessage ReIndex()
+        {
+            LogRequestDetails(Request);
+            StoreRequestMetrics(Request);
+
+            if (!ServiceInfo.IsActive)
+            {
+                return Request.CreateResponse(HttpStatusCode.ServiceUnavailable);
+            }
+
+            _symbolProcessor.Reindex();
+
+            return Request.CreateResponse(HttpStatusCode.Accepted);
         }
 
         /// <summary>
         /// Stores the provided file and prepares it for symbol processing.
         /// </summary>
-        /// <returns>A task that returns the http response message with the return code of the operation.</returns>
+        /// <returns>The http response message with the return code of the operation.</returns>
         [HttpPut]
         public HttpResponseMessage Upload()
         {
@@ -100,7 +125,9 @@ namespace Nanicitus.Service.Controllers
                             package.Id,
                             package.Version);
 
-                        File.Move(fileData.LocalFileName, Path.Combine(uploadPath, fileName));
+                        var symbolPackage = Path.Combine(uploadPath, fileName);
+                        File.Move(fileData.LocalFileName, symbolPackage);
+                        _symbolProcessor.Index(symbolPackage);
                         Metrics.Increment("Symbols.Uploaded");
                     }
                     else

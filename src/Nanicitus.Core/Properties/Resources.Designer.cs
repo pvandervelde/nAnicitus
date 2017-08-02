@@ -320,5 +320,32 @@ namespace Nanicitus.Core.Properties {
                 return ResourceManager.GetString("Log_Messages_SymbolIndexer_UploadingSymbols_WithPackageDetails", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to New symbol package ready for indexing at: {0}.
+        /// </summary>
+        internal static string Log_Messages_SymbolProcessor_FileToIndex_WithFilePath {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolProcessor_FileToIndex_WithFilePath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Symbol package indexing - Disabled.
+        /// </summary>
+        internal static string Log_Messages_SymbolProcessor_PackageIndexing_Disabled {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolProcessor_PackageIndexing_Disabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Symbol package indexing - Enabled.
+        /// </summary>
+        internal static string Log_Messages_SymbolProcessor_PackageIndexing_Enabled {
+            get {
+                return ResourceManager.GetString("Log_Messages_SymbolProcessor_PackageIndexing_Enabled", resourceCulture);
+            }
+        }
     }
 }
