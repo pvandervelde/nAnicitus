@@ -246,11 +246,6 @@ namespace Nanicitus.Core
         private CancellationTokenSource _cancellationSource;
 
         /// <summary>
-        /// A flag indicating if the processing of symbols has started or not.
-        /// </summary>
-        private bool _isStarted;
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="SymbolIndexer"/> class.
         /// </summary>
         /// <param name="packageQueue">The object that queues packages that need to be processed.</param>
@@ -267,7 +262,6 @@ namespace Nanicitus.Core
             _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
             _metrics = metrics ?? throw new ArgumentNullException("metrics");
             _queue = packageQueue ?? throw new ArgumentNullException("packageQueue");
-            _queue.OnEnqueue += HandleOnEnqueue;
 
             var debuggingToolsDirectory = configuration.Value(CoreConfigurationKeys.DebuggingToolsDirectory);
             _symStorePath = Path.Combine(debuggingToolsDirectory, "symstore.exe");
@@ -275,19 +269,23 @@ namespace Nanicitus.Core
             _pdbStrPath = Path.Combine(debuggingToolsDirectory, "srcsrv", "pdbstr.exe");
         }
 
-        private void HandleOnEnqueue(object sender, EventArgs e)
+        private void CleanUpWorkerTask()
         {
             lock (_lock)
             {
-                if (!_isStarted)
-                {
-                    _diagnostics.Log(
-                        LevelToLog.Trace,
-                        Resources.Log_Messages_SymbolIndexer_NewItemInQueue_ProcessingNotStarted);
+                _diagnostics.Log(
+                    LevelToLog.Trace,
+                    Resources.Log_Messages_SymbolIndexer_CleaningUpWorker);
 
-                    return;
-                }
+                _cancellationSource = null;
+                _worker = null;
+            }
+        }
 
+        private void CreateWorker()
+        {
+            lock (_lock)
+            {
                 if (_worker != null)
                 {
                     _diagnostics.Log(
@@ -311,194 +309,30 @@ namespace Nanicitus.Core
         }
 
         /// <summary>
-        /// Starts the symbol indexing process.
+        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
         /// </summary>
-        public void Start()
+        public void Dispose()
         {
-            lock (_lock)
-            {
-                _isStarted = true;
-            }
-        }
+            var task = Stop(false);
+            task.Wait();
 
-        [SuppressMessage(
-            "Microsoft.Design",
-            "CA1031:DoNotCatchGeneralExceptionTypes",
-            Justification = "Do not want the application to crash because the processor dies.")]
-        private void ProcessSymbols(CancellationToken token)
-        {
+            if (_cancellationSource != null)
+            {
+                _cancellationSource.Dispose();
+            }
+
             try
             {
-                _diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_StartingSymbolProcessing);
-
-                while (!token.IsCancellationRequested)
-                {
-                    if (_queue.IsEmpty && (_lockedPackages.Count == 0))
-                    {
-                        _diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_QueueEmpty);
-                        break;
-                    }
-
-                    string packageFile;
-                    ZipPackage package;
-                    if (!LoadPackage(out packageFile, out package))
-                    {
-                        continue;
-                    }
-
-                    var project = package.Id;
-                    var version = package.Version.Version;
-
-                    _diagnostics.Log(
-                        LevelToLog.Info,
-                        string.Format(
-                            CultureInfo.InvariantCulture,
-                            Resources.Log_Messages_SymbolIndexer_ProcessingPackage_WithIdAndVersion,
-                            project,
-                            version));
-
-                    // Unpack package file in temp location
-                    var processingWasSuccessful = true;
-                    var unpackLocation = Unpack(packageFile, project, version);
-                    try
-                    {
-                        IndexSymbols(unpackLocation, project, version);
-                        UploadSources(unpackLocation, project, version);
-                        UploadSymbols(unpackLocation, project, version);
-
-                        StoreSymbolProcessMetrics(true);
-                    }
-                    catch (Exception e)
-                    {
-                        processingWasSuccessful = false;
-
-                        _diagnostics.Log(
-                            LevelToLog.Error,
-                            string.Format(
-                                CultureInfo.InvariantCulture,
-                                Resources.Log_Messages_SymbolIndexer_ProcessingFailed_WithExceptionAndPackageDetails,
-                                e,
-                                project,
-                                version));
-
-                        StoreSymbolProcessMetrics(false);
-                    }
-                    finally
-                    {
-                        try
-                        {
-                            Directory.Delete(unpackLocation, true);
-                        }
-                        catch (IOException e)
-                        {
-                            _diagnostics.Log(
-                                LevelToLog.Error,
-                                string.Format(
-                                    CultureInfo.InvariantCulture,
-                                    Resources.Log_Messages_SymbolIndexer_PackageDeleteFailed_WithExceptionAndPackageDetails,
-                                    e,
-                                    project,
-                                    version));
-                        }
-
-                        if (processingWasSuccessful)
-                        {
-                            MarkSymbolsAsProcessed(packageFile, project, version);
-                        }
-                    }
-                }
+                Directory.Delete(_unpackDirectory, true);
             }
-            catch (Exception e)
+            catch (IOException)
             {
-                _diagnostics.Log(
-                    LevelToLog.Error,
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        Resources.Log_Messages_SymbolIndexer_ProcessSymbolsFailed_WithException,
-                        e));
-            }
-            finally
-            {
-                CleanUpWorkerTask();
             }
         }
 
-        private bool LoadPackage(out string packageFile, out ZipPackage package)
+        private void HandleOnEnqueue(object sender, EventArgs e)
         {
-            packageFile = null;
-            package = null;
-
-            int processCount = 0;
-            if (!_queue.IsEmpty)
-            {
-                packageFile = _queue.Dequeue();
-            }
-            else
-            {
-                if (_lockedPackages.Count > 0)
-                {
-                    var pair = _lockedPackages.Dequeue();
-                    packageFile = pair.Item1;
-                    processCount = pair.Item2;
-                }
-            }
-
-            if (packageFile == null)
-            {
-                _diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_PackageNotDefined);
-                return false;
-            }
-
-            if (processCount > MaximumNumberOfTimesPackageCanBeProcessed)
-            {
-                _diagnostics.Log(
-                    LevelToLog.Warn,
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        Resources.Log_Messages_PackageLoadCountBeyondMaximum_WithPackagePath,
-                        packageFile));
-                return false;
-            }
-
-            package = PackageUtilities.LoadSymbolPackage(
-                packageFile,
-                (file, e) =>
-                {
-                    _diagnostics.Log(
-                        LevelToLog.Error,
-                        string.Format(
-                            CultureInfo.InvariantCulture,
-                            Resources.Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException,
-                            e));
-
-                    _lockedPackages.Enqueue(new Tuple<string, int>(file, ++processCount));
-                });
-            return package != null;
-        }
-
-        private string Unpack(string packageFile, string project, Version version)
-        {
-            var destinationDirectory = Path.Combine(
-                _unpackDirectory,
-                string.Format(
-                    CultureInfo.InvariantCulture,
-                    "{0}.{1}",
-                    project,
-                    FormatVersion(version)));
-            if (!Directory.Exists(destinationDirectory))
-            {
-                Directory.CreateDirectory(destinationDirectory);
-            }
-
-            using (var zipFile = ZipFile.Read(packageFile))
-            {
-                foreach (var entry in zipFile)
-                {
-                    entry.Extract(destinationDirectory, ExtractExistingFileAction.OverwriteSilently);
-                }
-            }
-
-            return destinationDirectory;
+            CreateWorker();
         }
 
         /// <summary>
@@ -610,6 +444,281 @@ namespace Nanicitus.Core
             }
         }
 
+        private bool LoadPackage(out string packageFile, out ZipPackage package)
+        {
+            packageFile = null;
+            package = null;
+
+            int processCount = 0;
+            if (!_queue.IsEmpty)
+            {
+                packageFile = _queue.Dequeue();
+            }
+            else
+            {
+                if (_lockedPackages.Count > 0)
+                {
+                    var pair = _lockedPackages.Dequeue();
+                    packageFile = pair.Item1;
+                    processCount = pair.Item2;
+                }
+            }
+
+            if (packageFile == null)
+            {
+                _diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_PackageNotDefined);
+                return false;
+            }
+
+            if (processCount > MaximumNumberOfTimesPackageCanBeProcessed)
+            {
+                _diagnostics.Log(
+                    LevelToLog.Warn,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_PackageLoadCountBeyondMaximum_WithPackagePath,
+                        packageFile));
+                return false;
+            }
+
+            package = PackageUtilities.LoadSymbolPackage(
+                packageFile,
+                (file, e) =>
+                {
+                    _diagnostics.Log(
+                        LevelToLog.Error,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Resources.Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException,
+                            e));
+
+                    _lockedPackages.Enqueue(new Tuple<string, int>(file, ++processCount));
+                });
+            return package != null;
+        }
+
+        private void MarkSymbolsAsProcessed(string packageFile, string project, Version version)
+        {
+            {
+                Debug.Assert(packageFile != null, "The package file path should not be a null reference.");
+            }
+
+            try
+            {
+                var processedPackagesPath = _configuration.Value(CoreConfigurationKeys.ProcessedPackagesPath);
+                if (!Directory.Exists(processedPackagesPath))
+                {
+                    Directory.CreateDirectory(processedPackagesPath);
+                }
+
+                var newPath = Path.Combine(processedPackagesPath, Path.GetFileName(packageFile));
+                File.Move(packageFile, newPath);
+            }
+            catch (IOException e)
+            {
+                _diagnostics.Log(
+                    LevelToLog.Error,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_PackageMoveFailed_WithExceptionAndPackageDetails,
+                        e,
+                        project,
+                        version));
+            }
+        }
+
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Do not want the application to crash because the processor dies.")]
+        private void ProcessSymbols(CancellationToken token)
+        {
+            try
+            {
+                _diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_StartingSymbolProcessing);
+
+                while (!token.IsCancellationRequested)
+                {
+                    if (_queue.IsEmpty && (_lockedPackages.Count == 0))
+                    {
+                        _diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_QueueEmpty);
+                        break;
+                    }
+
+                    string packageFile;
+                    ZipPackage package;
+                    if (!LoadPackage(out packageFile, out package))
+                    {
+                        continue;
+                    }
+
+                    var project = package.Id;
+                    var version = package.Version.Version;
+
+                    _diagnostics.Log(
+                        LevelToLog.Info,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Resources.Log_Messages_SymbolIndexer_ProcessingPackage_WithIdAndVersion,
+                            project,
+                            version));
+
+                    // Unpack package file in temp location
+                    var processingWasSuccessful = true;
+                    var unpackLocation = Unpack(packageFile, project, version);
+                    try
+                    {
+                        IndexSymbols(unpackLocation, project, version);
+                        UploadSources(unpackLocation, project, version);
+                        UploadSymbols(unpackLocation, project, version);
+
+                        StoreSymbolProcessMetrics(true);
+                    }
+                    catch (Exception e)
+                    {
+                        processingWasSuccessful = false;
+
+                        _diagnostics.Log(
+                            LevelToLog.Error,
+                            string.Format(
+                                CultureInfo.InvariantCulture,
+                                Resources.Log_Messages_SymbolIndexer_ProcessingFailed_WithExceptionAndPackageDetails,
+                                e,
+                                project,
+                                version));
+
+                        StoreSymbolProcessMetrics(false);
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            Directory.Delete(unpackLocation, true);
+                        }
+                        catch (IOException e)
+                        {
+                            _diagnostics.Log(
+                                LevelToLog.Error,
+                                string.Format(
+                                    CultureInfo.InvariantCulture,
+                                    Resources.Log_Messages_SymbolIndexer_PackageDeleteFailed_WithExceptionAndPackageDetails,
+                                    e,
+                                    project,
+                                    version));
+                        }
+
+                        if (processingWasSuccessful)
+                        {
+                            MarkSymbolsAsProcessed(packageFile, project, version);
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                _diagnostics.Log(
+                    LevelToLog.Error,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolIndexer_ProcessSymbolsFailed_WithException,
+                        e));
+            }
+            finally
+            {
+                CleanUpWorkerTask();
+            }
+        }
+
+        /// <summary>
+        /// Starts the symbol indexing process.
+        /// </summary>
+        public void Start()
+        {
+            _queue.OnEnqueue += HandleOnEnqueue;
+            CreateWorker();
+        }
+
+        /// <summary>
+        /// Stops the symbol indexing process.
+        /// </summary>
+        /// <param name="clearCurrentQueue">
+        /// Indicates if the elements currently in the queue need to be processed before stopping or not.
+        /// </param>
+        /// <returns>A task that completes when the indexer has stopped.</returns>
+        public Task Stop(bool clearCurrentQueue)
+        {
+            _queue.OnEnqueue -= HandleOnEnqueue;
+
+            var result = Task.Factory.StartNew(
+                () =>
+                {
+                    _diagnostics.Log(
+                        LevelToLog.Info,
+                        Resources.Log_Messages_SymbolIndexer_StoppingProcessing);
+
+                    if (!clearCurrentQueue && !_queue.IsEmpty)
+                    {
+                        lock (_lock)
+                        {
+                            if (_cancellationSource != null)
+                            {
+                                _cancellationSource.Cancel();
+                            }
+                        }
+                    }
+
+                    Task worker;
+                    lock (_lock)
+                    {
+                        worker = _worker;
+                    }
+
+                    if (worker != null)
+                    {
+                        worker.Wait();
+                    }
+
+                    CleanUpWorkerTask();
+                });
+
+            return result;
+        }
+
+        private void StoreSymbolProcessMetrics(bool wasSuccessful)
+        {
+            _metrics.Increment(
+                "Symbols.Processed",
+                new Dictionary<string, string>
+                {
+                    { "Success", wasSuccessful.ToString() }
+                });
+        }
+
+        private string Unpack(string packageFile, string project, Version version)
+        {
+            var destinationDirectory = Path.Combine(
+                _unpackDirectory,
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0}.{1}",
+                    project,
+                    FormatVersion(version)));
+            if (!Directory.Exists(destinationDirectory))
+            {
+                Directory.CreateDirectory(destinationDirectory);
+            }
+
+            using (var zipFile = ZipFile.Read(packageFile))
+            {
+                foreach (var entry in zipFile)
+                {
+                    entry.Extract(destinationDirectory, ExtractExistingFileAction.OverwriteSilently);
+                }
+            }
+
+            return destinationDirectory;
+        }
+
         private void UploadSources(string unpackLocation, string project, Version version)
         {
             var processedSourcePath = _configuration.Value(CoreConfigurationKeys.ProcessedSourcePath);
@@ -696,127 +805,6 @@ namespace Nanicitus.Core
                         project,
                         version));
             }
-        }
-
-        private void MarkSymbolsAsProcessed(string packageFile, string project, Version version)
-        {
-            {
-                Debug.Assert(packageFile != null, "The package file path should not be a null reference.");
-            }
-
-            try
-            {
-                var processedPackagesPath = _configuration.Value(CoreConfigurationKeys.ProcessedPackagesPath);
-                if (!Directory.Exists(processedPackagesPath))
-                {
-                    Directory.CreateDirectory(processedPackagesPath);
-                }
-
-                var newPath = Path.Combine(processedPackagesPath, Path.GetFileName(packageFile));
-                File.Move(packageFile, newPath);
-            }
-            catch (IOException e)
-            {
-                _diagnostics.Log(
-                    LevelToLog.Error,
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        Resources.Log_Messages_SymbolIndexer_PackageMoveFailed_WithExceptionAndPackageDetails,
-                        e,
-                        project,
-                        version));
-            }
-        }
-
-        /// <summary>
-        /// Stops the symbol indexing process.
-        /// </summary>
-        /// <param name="clearCurrentQueue">
-        /// Indicates if the elements currently in the queue need to be processed before stopping or not.
-        /// </param>
-        /// <returns>A task that completes when the indexer has stopped.</returns>
-        public Task Stop(bool clearCurrentQueue)
-        {
-            _isStarted = false;
-
-            var result = Task.Factory.StartNew(
-                () =>
-                {
-                    _diagnostics.Log(
-                        LevelToLog.Info,
-                        Resources.Log_Messages_SymbolIndexer_StoppingProcessing);
-
-                    if (!clearCurrentQueue && !_queue.IsEmpty)
-                    {
-                        lock (_lock)
-                        {
-                            if (_cancellationSource != null)
-                            {
-                                _cancellationSource.Cancel();
-                            }
-                        }
-                    }
-
-                    Task worker;
-                    lock (_lock)
-                    {
-                        worker = _worker;
-                    }
-
-                    if (worker != null)
-                    {
-                        worker.Wait();
-                    }
-
-                    CleanUpWorkerTask();
-                });
-
-            return result;
-        }
-
-        private void CleanUpWorkerTask()
-        {
-            lock (_lock)
-            {
-                _diagnostics.Log(
-                    LevelToLog.Trace,
-                    Resources.Log_Messages_SymbolIndexer_CleaningUpWorker);
-
-                _cancellationSource = null;
-                _worker = null;
-            }
-        }
-
-        /// <summary>
-        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-        /// </summary>
-        public void Dispose()
-        {
-            var task = Stop(false);
-            task.Wait();
-
-            if (_cancellationSource != null)
-            {
-                _cancellationSource.Dispose();
-            }
-
-            try
-            {
-                Directory.Delete(_unpackDirectory, true);
-            }
-            catch (IOException)
-            {
-            }
-        }
-
-        private void StoreSymbolProcessMetrics(bool wasSuccessful)
-        {
-            _metrics.Increment(
-                "Symbols.Processed",
-                new Dictionary<string, string>
-                {
-                    { "Success", wasSuccessful.ToString() }
-                });
         }
     }
 }

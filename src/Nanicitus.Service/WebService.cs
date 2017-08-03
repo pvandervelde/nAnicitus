@@ -44,10 +44,9 @@ namespace Nanicitus.Service
 
         private readonly IConfiguration _configuration;
         private readonly SystemDiagnostics _diagnostics;
-        private readonly IIndexSymbols _indexer;
         private readonly IServiceDiscovery _serviceDiscovery;
         private readonly IServiceInfo _serviceInfo;
-        private readonly IUploadPackages _uploader;
+        private readonly ISymbolProcessor _symbolProcessor;
 
         private IDisposable _app;
         private bool _isRegistered = false;
@@ -60,16 +59,14 @@ namespace Nanicitus.Service
             IConfiguration configuration,
             IServiceDiscovery serviceDiscovery,
             IServiceInfo serviceInfo,
-            IIndexSymbols indexer,
-            IUploadPackages uploader,
+            ISymbolProcessor processor,
             SystemDiagnostics diagnostics)
         {
             _configuration = configuration ?? throw new ArgumentNullException("configuration");
             _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
-            _indexer = indexer ?? throw new ArgumentNullException("indexer");
             _serviceDiscovery = serviceDiscovery ?? throw new ArgumentNullException("serviceDiscovery");
             _serviceInfo = serviceInfo ?? throw new ArgumentNullException("serviceInfo");
-            _uploader = uploader ?? throw new ArgumentNullException("uploader");
+            _symbolProcessor = processor ?? throw new ArgumentNullException("processor");
         }
 
         public void Start()
@@ -122,8 +119,7 @@ namespace Nanicitus.Service
                 LevelToLog.Info,
                 Resources.Log_Messages_ServiceEntryPoint_StartingService);
 
-            _indexer.Start();
-            _uploader.EnableUpload();
+            _symbolProcessor.Start();
         }
 
         public void Stop()
@@ -133,14 +129,9 @@ namespace Nanicitus.Service
                 _serviceDiscovery.Deregister();
             }
 
-            if (_uploader != null)
+            if (_symbolProcessor != null)
             {
-                _uploader.DisableUpload();
-            }
-
-            if (_indexer != null)
-            {
-                var clearingTask = _indexer.Stop(true);
+                var clearingTask = _symbolProcessor.Stop(true);
                 clearingTask.Wait();
             }
 
