@@ -38,6 +38,7 @@ namespace Nanicitus.Core
             builder.Register(c => new SymbolProcessor(
                     c.Resolve<IIndexSymbols>(),
                     c.Resolve<IQueueSymbolPackages>(),
+                    c.Resolve<IConfiguration>(),
                     c.Resolve<IMetricsCollector>(),
                     c.Resolve<SystemDiagnostics>()))
                 .As<ISymbolProcessor>()

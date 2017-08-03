@@ -128,7 +128,6 @@ namespace Nanicitus.Service.Controllers
                         var symbolPackage = Path.Combine(uploadPath, fileName);
                         File.Move(fileData.LocalFileName, symbolPackage);
                         _symbolProcessor.Index(symbolPackage);
-                        Metrics.Increment("Symbols.Uploaded");
                     }
                     else
                     {

@@ -8,11 +8,13 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Nanicitus.Core.Monitoring;
 using Nanicitus.Core.Properties;
+using Nuclei.Configuration;
 using Nuclei.Diagnostics;
 using Nuclei.Diagnostics.Logging;
 
@@ -23,6 +25,7 @@ namespace Nanicitus.Core
     /// </summary>
     internal sealed class SymbolProcessor : ISymbolProcessor
     {
+        private readonly IConfiguration _configuration;
         private readonly SystemDiagnostics _diagnostics;
         private readonly IIndexSymbols _indexer;
         private readonly IMetricsCollector _metrics;
@@ -33,14 +36,17 @@ namespace Nanicitus.Core
         /// </summary>
         /// <param name="indexer">The object that indexes the PDB files from the symbol packages.</param>
         /// <param name="queue">The object which queues symbol packages to be processed.</param>
+        /// <param name="configuration">The object that provides the configuration for the application.</param>
         /// <param name="metrics">The objet that provides the metrics collection methods.</param>
         /// <param name="diagnostics">The object that provides the diagnostics methods for the application.</param>
         public SymbolProcessor(
             IIndexSymbols indexer,
             IQueueSymbolPackages queue,
+            IConfiguration configuration,
             IMetricsCollector metrics,
             SystemDiagnostics diagnostics)
         {
+            _configuration = configuration ?? throw new ArgumentNullException("configuration");
             _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
             _indexer = indexer ?? throw new ArgumentNullException("indexer");
             _metrics = metrics ?? throw new ArgumentNullException("metrics");
@@ -65,6 +71,8 @@ namespace Nanicitus.Core
         /// <param name="path">The full path to the symbol package.</param>
         public void Index(string path)
         {
+            _metrics.Increment("Symbols.Uploaded");
+
             _queue.Enqueue(path);
             _diagnostics.Log(
                 LevelToLog.Info,
@@ -79,7 +87,73 @@ namespace Nanicitus.Core
         /// </summary>
         public void RebuildIndex()
         {
-            throw new NotImplementedException();
+            _metrics.Increment("Symbols.RebuildIndex");
+
+            var stoppingTask = _indexer.Stop(true);
+            stoppingTask.Wait();
+
+            var uploadDirectory = _configuration.Value(CoreConfigurationKeys.UploadPath);
+            var processedFilePath = _configuration.Value(CoreConfigurationKeys.ProcessedPackagesPath);
+            foreach (var file in Directory.EnumerateFiles(processedFilePath))
+            {
+                var target = Path.Combine(
+                    uploadDirectory,
+                    Path.GetFileName(file));
+                File.Move(file, target);
+                _queue.Enqueue(target);
+            }
+
+            var symbolPath = _configuration.Value(CoreConfigurationKeys.ProcessedSymbolsPath);
+            foreach (var file in Directory.EnumerateFiles(symbolPath))
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (IOException)
+                {
+                    // Ignore it for now
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // Ignore it for now
+                }
+            }
+
+            foreach (var directory in Directory.EnumerateDirectories(symbolPath))
+            {
+                try
+                {
+                    Directory.Delete(directory, true);
+                }
+                catch (IOException)
+                {
+                    // Ignore it for now
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // Ignore it for now
+                }
+            }
+
+            var sourcePath = _configuration.Value(CoreConfigurationKeys.ProcessedSourcePath);
+            foreach (var directory in Directory.EnumerateDirectories(sourcePath))
+            {
+                try
+                {
+                    Directory.Delete(directory, true);
+                }
+                catch (IOException)
+                {
+                    // Ignore it for now
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // Ignore it for now
+                }
+            }
+
+            _indexer.Start();
         }
 
         /// <summary>
