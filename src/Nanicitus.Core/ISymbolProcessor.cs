@@ -25,7 +25,7 @@ namespace Nanicitus.Core
         /// <summary>
         /// Re-Indexes all the previously processed symbols.
         /// </summary>
-        void Reindex();
+        void RebuildIndex();
 
         /// <summary>
         /// Starts the symbol indexing process.

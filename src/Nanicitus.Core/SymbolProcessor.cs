@@ -77,7 +77,7 @@ namespace Nanicitus.Core
         /// <summary>
         /// Re-Indexes all the previously processed symbols.
         /// </summary>
-        public void Reindex()
+        public void RebuildIndex()
         {
             throw new NotImplementedException();
         }

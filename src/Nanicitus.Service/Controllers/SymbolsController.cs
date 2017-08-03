@@ -56,7 +56,7 @@ namespace Nanicitus.Service.Controllers
         /// </summary>
         /// <returns>The http resonse message with the return code of the operation.</returns>
         [HttpPut]
-        public HttpResponseMessage ReIndex()
+        public HttpResponseMessage RebuildIndex()
         {
             LogRequestDetails(Request);
             StoreRequestMetrics(Request);
@@ -66,7 +66,7 @@ namespace Nanicitus.Service.Controllers
                 return Request.CreateResponse(HttpStatusCode.ServiceUnavailable);
             }
 
-            _symbolProcessor.Reindex();
+            _symbolProcessor.RebuildIndex();
 
             return Request.CreateResponse(HttpStatusCode.Accepted);
         }
