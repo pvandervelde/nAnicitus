@@ -5,6 +5,7 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using System;
 using Autofac;
 using Nanicitus.Core.Monitoring;
 using Nuclei.Configuration;
@@ -23,21 +24,33 @@ namespace Nanicitus.Core
         /// <param name="builder">The builder through which components can be registered.</param>
         protected override void Load(ContainerBuilder builder)
         {
-            builder.Register(c => new SymbolIndexer(
-                    c.Resolve<IQueueSymbolPackages>(),
-                    c.Resolve<IConfiguration>(),
-                    c.Resolve<IMetricsCollector>(),
-                    c.Resolve<SystemDiagnostics>()))
-                .As<IIndexSymbols>()
+            builder.Register(
+                (c, p) =>
+                {
+                    var ctx = c.Resolve<IComponentContext>();
+                    Func<IQueueSymbolPackages, IConfiguration, IIndexSymbols> b =
+                        (queue, config) => new SymbolIndexer(
+                            queue,
+                            config,
+                            ctx.Resolve<IMetricsCollector>(),
+                            ctx.Resolve<SystemDiagnostics>());
+                    return b;
+                })
+                .As<Func<IQueueSymbolPackages, IConfiguration, IIndexSymbols>>()
                 .SingleInstance();
 
-            builder.Register(c => new PackageQueue())
-                .As<IQueueSymbolPackages>()
+            builder.Register(
+                c =>
+                {
+                    Func<IQueueSymbolPackages> b = () => new PackageQueue();
+                    return b;
+                })
+                .As<Func<IQueueSymbolPackages>>()
                 .SingleInstance();
 
             builder.Register(c => new SymbolProcessor(
-                    c.Resolve<IIndexSymbols>(),
-                    c.Resolve<IQueueSymbolPackages>(),
+                    c.Resolve<Func<IQueueSymbolPackages, IConfiguration, IIndexSymbols>>(),
+                    c.Resolve<Func<IQueueSymbolPackages>>(),
                     c.Resolve<IConfiguration>(),
                     c.Resolve<IMetricsCollector>(),
                     c.Resolve<SystemDiagnostics>()))

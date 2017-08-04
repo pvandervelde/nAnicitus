@@ -28,7 +28,7 @@ namespace Nanicitus.Core
     /// <summary>
     /// Handles the indexing of symbols and sources.
     /// </summary>
-    internal sealed class SymbolIndexer : IIndexSymbols, IDisposable
+    internal sealed class SymbolIndexer : IIndexSymbols
     {
         /// <summary>
         /// Indicates the maximum number of times the indexer will try to process a package

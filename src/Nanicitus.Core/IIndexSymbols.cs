@@ -5,6 +5,7 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 
@@ -13,7 +14,7 @@ namespace Nanicitus.Core
     /// <summary>
     /// Defines the interface for objects that handle the indexing of symbols.
     /// </summary>
-    public interface IIndexSymbols
+    public interface IIndexSymbols : IDisposable
     {
         /// <summary>
         /// Starts the symbol indexing process.

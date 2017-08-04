@@ -27,30 +27,38 @@ namespace Nanicitus.Core
     {
         private readonly IConfiguration _configuration;
         private readonly SystemDiagnostics _diagnostics;
-        private readonly IIndexSymbols _indexer;
+
+        private readonly Func<IQueueSymbolPackages, IConfiguration, IIndexSymbols> _indexerBuilder;
+
+        private readonly object _lock = new object();
+
         private readonly IMetricsCollector _metrics;
-        private readonly IQueueSymbolPackages _queue;
+
+        private readonly Func<IQueueSymbolPackages> _queueBuilder;
+
+        private IIndexSymbols _indexer;
+        private IQueueSymbolPackages _indexerQueue;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SymbolProcessor"/> class.
         /// </summary>
-        /// <param name="indexer">The object that indexes the PDB files from the symbol packages.</param>
-        /// <param name="queue">The object which queues symbol packages to be processed.</param>
+        /// <param name="indexerBuilder">The function that generates objects that index the PDB files from the symbol packages.</param>
+        /// <param name="queueBuilder">The the function that generates objects which queues symbol packages to be processed.</param>
         /// <param name="configuration">The object that provides the configuration for the application.</param>
         /// <param name="metrics">The objet that provides the metrics collection methods.</param>
         /// <param name="diagnostics">The object that provides the diagnostics methods for the application.</param>
         public SymbolProcessor(
-            IIndexSymbols indexer,
-            IQueueSymbolPackages queue,
+            Func<IQueueSymbolPackages, IConfiguration, IIndexSymbols> indexerBuilder,
+            Func<IQueueSymbolPackages> queueBuilder,
             IConfiguration configuration,
             IMetricsCollector metrics,
             SystemDiagnostics diagnostics)
         {
             _configuration = configuration ?? throw new ArgumentNullException("configuration");
             _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
-            _indexer = indexer ?? throw new ArgumentNullException("indexer");
+            _indexerBuilder = indexerBuilder ?? throw new ArgumentNullException("indexer");
             _metrics = metrics ?? throw new ArgumentNullException("metrics");
-            _queue = queue ?? throw new ArgumentNullException("queue");
+            _queueBuilder = queueBuilder ?? throw new ArgumentNullException("queue");
         }
 
         /// <summary>
@@ -58,10 +66,28 @@ namespace Nanicitus.Core
         /// </summary>
         public void Dispose()
         {
-            var disposable = _indexer as IDisposable;
-            if (disposable != null)
+            if (_indexer != null)
             {
-                disposable.Dispose();
+                _indexer.Dispose();
+            }
+
+            _indexer = null;
+            _indexerQueue = null;
+        }
+
+        private void EnsureIndexingInstances()
+        {
+            lock (_lock)
+            {
+                if (_indexerQueue == null)
+                {
+                    _indexerQueue = _queueBuilder();
+                }
+
+                if (_indexer == null)
+                {
+                    _indexer = _indexerBuilder(_indexerQueue, _configuration);
+                }
             }
         }
 
@@ -71,9 +97,10 @@ namespace Nanicitus.Core
         /// <param name="path">The full path to the symbol package.</param>
         public void Index(string path)
         {
+            ValidateIndexingInstances();
             _metrics.Increment("Symbols.Uploaded");
 
-            _queue.Enqueue(path);
+            _indexerQueue.Enqueue(path);
             _diagnostics.Log(
                 LevelToLog.Info,
                 string.Format(
@@ -87,9 +114,10 @@ namespace Nanicitus.Core
         /// </summary>
         public void RebuildIndex()
         {
+            ValidateIndexingInstances();
             _metrics.Increment("Symbols.RebuildIndex");
 
-            var stoppingTask = _indexer.Stop(true);
+            var stoppingTask = _indexer.Stop(false);
             stoppingTask.Wait();
 
             var uploadDirectory = _configuration.Value(CoreConfigurationKeys.UploadPath);
@@ -100,7 +128,7 @@ namespace Nanicitus.Core
                     uploadDirectory,
                     Path.GetFileName(file));
                 File.Move(file, target);
-                _queue.Enqueue(target);
+                _indexerQueue.Enqueue(target);
             }
 
             var symbolPath = _configuration.Value(CoreConfigurationKeys.ProcessedSymbolsPath);
@@ -156,6 +184,26 @@ namespace Nanicitus.Core
             _indexer.Start();
         }
 
+        private void RemoveIndexingInstances()
+        {
+            lock (_lock)
+            {
+                if (_indexer != null)
+                {
+                    _indexer.Stop(false).Wait();
+
+                    var disposable = _indexer as IDisposable;
+                    disposable.Dispose();
+                    _indexer = null;
+                }
+
+                if (_indexerQueue != null)
+                {
+                    _indexerQueue = null;
+                }
+            }
+        }
+
         /// <summary>
         /// Starts the symbol indexing process.
         /// </summary>
@@ -165,6 +213,7 @@ namespace Nanicitus.Core
                 LevelToLog.Info,
                 Resources.Log_Messages_SymbolProcessor_PackageIndexing_Enabled);
 
+            EnsureIndexingInstances();
             _indexer.Start();
         }
 
@@ -181,7 +230,25 @@ namespace Nanicitus.Core
                     LevelToLog.Info,
                     Resources.Log_Messages_SymbolProcessor_PackageIndexing_Disabled);
 
-            return _indexer.Stop(clearCurrentQueue);
+            try
+            {
+                return _indexer.Stop(clearCurrentQueue);
+            }
+            finally
+            {
+                RemoveIndexingInstances();
+            }
+        }
+
+        private void ValidateIndexingInstances()
+        {
+            lock (_lock)
+            {
+                if ((_indexerQueue == null) || (_indexer == null))
+                {
+                    throw new InvalidOperationException();
+                }
+            }
         }
     }
 }
