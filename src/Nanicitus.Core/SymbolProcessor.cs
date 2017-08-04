@@ -110,6 +110,27 @@ namespace Nanicitus.Core
         }
 
         /// <summary>
+        /// Returns a value indicating whether or not the symbol package at the given
+        /// location is a valid symbol package.
+        /// </summary>
+        /// <param name="path">The full path to the symbol package.</param>
+        /// <returns>
+        ///     <see langword="true" /> if the symbol package at the given location is valid,
+        ///     otherwise <see langword="false" />.
+        /// </returns>
+        public bool IsValid(string path)
+        {
+            // process the symbols on a separate queue in a separate location
+            var validationConfiguration = new ConstantConfiguration(
+                new Dictionary<ConfigurationKeyBase, object>
+                { });
+            var validationQueue = _queueBuilder();
+            using (var indexer = _indexerBuilder(validationQueue, validationConfiguration))
+            {
+            }
+        }
+
+        /// <summary>
         /// Re-Indexes all the previously processed symbols.
         /// </summary>
         public void RebuildIndex()

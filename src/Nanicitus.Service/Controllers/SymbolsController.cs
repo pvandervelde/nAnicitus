@@ -51,6 +51,72 @@ namespace Nanicitus.Service.Controllers
             _symbolProcessor = symbolProcessor ?? throw new ArgumentNullException("symbolProcessor");
         }
 
+        [HttpPut]
+        public HttpResponseMessage IsValid()
+        {
+            LogRequestDetails(Request);
+            StoreRequestMetrics(Request);
+
+            if (!ServiceInfo.IsActive)
+            {
+                return Request.CreateResponse(HttpStatusCode.ServiceUnavailable);
+            }
+
+            var tempPath = ServiceConfiguration.Value(ServiceConfigurationKeys.TempPath);
+            var uploadPath = ServiceConfiguration.Value(CoreConfigurationKeys.UploadPath);
+
+            var isValid = false;
+            if (Request.Content.IsMimeMultipartContent())
+            {
+                var streamProvider = new ProvidedFileNameMultipartFormDataStreamProvider(tempPath);
+
+                try
+                {
+                    Request.Content.ReadAsMultipartAsync(streamProvider).Wait();
+                }
+                catch (AggregateException e)
+                {
+                    Diagnostics.Log(LevelToLog.Error, e.ToString());
+                }
+
+                isValid = true;
+                foreach (var fileData in streamProvider.FileData)
+                {
+                    // Turn the file into a nuget package and then move it to the
+                    // storage location
+                    var package = PackageUtilities.LoadSymbolPackage(
+                        fileData.LocalFileName,
+                        (file, e) =>
+                        {
+                            Diagnostics.Log(
+                                LevelToLog.Error,
+                                string.Format(
+                                    CultureInfo.InvariantCulture,
+                                    "Failed to load. Error was: {0}",
+                                    e));
+                        });
+                    if (package != null)
+                    {
+                        var fileName = string.Format(
+                            CultureInfo.InvariantCulture,
+                            "{0}.{1}.symbols.nupkg",
+                            package.Id,
+                            package.Version);
+
+                        var symbolPackage = Path.Combine(uploadPath, fileName);
+                        File.Move(fileData.LocalFileName, symbolPackage);
+                        isValid = isValid && _symbolProcessor.IsValid(symbolPackage);
+                    }
+                    else
+                    {
+                        isValid = false;
+                    }
+                }
+            }
+
+            var responseCode = isValid ? HttpStatusCode.OK : HttpStatusCode.BadRequest;
+        }
+
         /// <summary>
         /// Reindexes all the symbol packages and rebuilds the symbol and source stores.
         /// </summary>

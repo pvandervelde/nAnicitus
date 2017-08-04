@@ -23,6 +23,17 @@ namespace Nanicitus.Core
         void Index(string path);
 
         /// <summary>
+        /// Returns a value indicating whether or not the symbol package at the given
+        /// location is a valid symbol package.
+        /// </summary>
+        /// <param name="path">The full path to the symbol package.</param>
+        /// <returns>
+        ///     <see langword="true" /> if the symbol package at the given location is valid,
+        ///     otherwise <see langword="false" />.
+        /// </returns>
+        bool IsValid(string path);
+
+        /// <summary>
         /// Re-Indexes all the previously processed symbols.
         /// </summary>
         void RebuildIndex();
