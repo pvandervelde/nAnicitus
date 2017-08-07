@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -161,6 +162,10 @@ namespace Nanicitus.Core
         ///     A tuple containing the overall result of the operation and the status reports
         ///     for the indexing process.
         /// </returns>
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "For some reason we can't always delete the directory we just created")]
         public (bool result, IEnumerable<IndexReport> messages) IsValid(IEnumerable<string> paths)
 #pragma warning restore SA1008 // Opening parenthesis must be spaced correctly
         {
@@ -182,6 +187,10 @@ namespace Nanicitus.Core
             var validationConfiguration = new ConstantConfiguration(
                 new Dictionary<ConfigurationKeyBase, object>
                 {
+                    {
+                        CoreConfigurationKeys.DebuggingToolsDirectory,
+                        _configuration.Value(CoreConfigurationKeys.DebuggingToolsDirectory)
+                    },
                     {
                         CoreConfigurationKeys.SourceServerUrl,
                         _configuration.Value(CoreConfigurationKeys.SourceServerUrl)
@@ -208,44 +217,82 @@ namespace Nanicitus.Core
 
             var result = new Dictionary<string, Task<IndexReport>>();
 
-            var validationQueue = _queueBuilder();
-            using (var indexer = _indexerBuilder(validationQueue, validationConfiguration))
+            try
             {
-                indexer.Start();
-
-                foreach (var path in paths)
+                var validationQueue = _queueBuilder();
+                using (var indexer = _indexerBuilder(validationQueue, validationConfiguration))
                 {
-                    var addTask = new TaskCompletionSource<IndexReport>();
-                    Action<IndexReport> action = r => addTask.SetResult(r);
+                    indexer.Start();
 
-                    validationQueue.Enqueue(path, action);
-                    result.Add(path, addTask.Task);
+                    foreach (var path in paths)
+                    {
+                        var addTask = new TaskCompletionSource<IndexReport>();
+                        Action<IndexReport> action = r => addTask.SetResult(r);
+
+                        validationQueue.Enqueue(path, action);
+                        result.Add(path, addTask.Task);
+                    }
+
+                    var indexingTask = indexer.Stop(true);
+                    indexingTask.Wait();
                 }
 
-                indexer.Stop(true);
-            }
-
-            Task.WaitAll(result.Values.ToArray(), TimeSpan.FromSeconds(60));
-            var reports = result
-                .Select(
-                    pair =>
-                    {
-                        var path = pair.Key;
-                        var t = pair.Value;
-                        if (t.IsCompleted)
+                Task.WaitAll(result.Values.ToArray(), TimeSpan.FromSeconds(300));
+                var reports = result
+                    .Select(
+                        pair =>
                         {
-                            return t.Result;
+                            var path = pair.Key;
+                            var t = pair.Value;
+                            if (t.IsCompleted)
+                            {
+                                return t.Result;
+                            }
+
+                            var id = PackageUtilities.GetPackageIdentity(path);
+                            return new IndexReport(
+                                id.Id,
+                                id.Version.ToString(),
+                                IndexStatus.Failed,
+                                new[] { "Failed to process symbols within timespan of 60 seconds." });
+                        });
+
+                return (!reports.Any(r => r.Status != IndexStatus.Succeeded), reports);
+            }
+            finally
+            {
+                var pathsToDelete = new[]
+                {
+                    validationConfiguration.Value(CoreConfigurationKeys.ProcessedPackagesPath),
+                    validationConfiguration.Value(CoreConfigurationKeys.ProcessedSourcePath),
+                    validationConfiguration.Value(CoreConfigurationKeys.ProcessedSymbolsPath),
+                };
+
+                foreach (var path in pathsToDelete)
+                {
+                    try
+                    {
+                        if (Directory.Exists(path))
+                        {
+                            Directory.Delete(path, true);
                         }
-
-                        var id = PackageUtilities.GetPackageIdentity(path);
-                        return new IndexReport(
-                            id.Id,
-                            id.Version.ToString(),
-                            IndexStatus.Failed,
-                            new[] { "Failed to process symbols within timespan of 60 seconds." });
-                    });
-
-            return (!reports.Any(r => r.Status != IndexStatus.Succeeded), reports);
+                    }
+                    catch (IOException)
+                    {
+                        _diagnostics.Log(
+                            LevelToLog.Warn,
+                            "Failed to delete validation directory at: {0}",
+                            path);
+                    }
+                    catch (SystemException)
+                    {
+                        _diagnostics.Log(
+                            LevelToLog.Warn,
+                            "Failed to delete validation directory at: {0}",
+                            path);
+                    }
+                }
+            }
         }
 
         /// <summary>

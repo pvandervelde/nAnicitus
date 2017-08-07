@@ -403,12 +403,26 @@ namespace Nanicitus.Core
         /// <param name="unpackLocation">The directory in which the package was extracted.</param>
         /// <param name="project">The name of the project for which the PDBs are published.</param>
         /// <param name="version">The version of the project for which the PDBs are published.</param>
-        private void IndexSymbols(string unpackLocation, string project, Version version)
+        /// <param name="reportSink">The function to which the indexing reports should be provided.</param>
+        /// <returns>A value indicating whether the indexing was successful.</returns>
+        private bool IndexSymbols(string unpackLocation, string project, Version version, Action<IndexReport> reportSink)
         {
             var sourceServerUrl = _configuration.Value(CoreConfigurationKeys.SourceServerUrl);
             var sourceLocation = Path.Combine(unpackLocation, "src");
 
             var pdbFiles = GetPdbFiles(unpackLocation);
+            if (pdbFiles.Length == 0)
+            {
+                reportSink(
+                    new IndexReport(
+                        project,
+                        version.ToString(),
+                        IndexStatus.Failed,
+                        new[] { "No PDB files found" }));
+                return false;
+            }
+
+            var indexMessages = new List<string>();
             foreach (var pdbFile in pdbFiles)
             {
                 _diagnostics.Log(
@@ -452,23 +466,33 @@ namespace Nanicitus.Core
                         continue;
                     }
 
+                    // check that all files mentioned in the PDB are there
                     // Iterate files. Add path to file in SRCSRV stream
                     var pathSeparator = DetermineSeparatingCharacter(sourceServerUrl);
                     foreach (var file in files)
                     {
-                        if (relativePathMap.ContainsKey(file))
+                        if (!relativePathMap.ContainsKey(file))
                         {
-                            var relativeFile = relativePathMap[file].Replace(Path.DirectorySeparatorChar.ToString(), pathSeparator);
+                            indexMessages.Add(
+                                string.Format(
+                                    CultureInfo.InvariantCulture,
+                                    "Could not determine relative source file path to: {1} for PDB: {0}. It is possible the source file was not present in the symbol package",
+                                    Path.GetFileName(pdbFile),
+                                    file));
 
-                            writer.Write(file);
-                            writer.Write("*");
-                            writer.Write(project);
-                            writer.Write("*");
-                            writer.Write(FormatVersion(version));
-                            writer.Write("*");
-                            writer.Write(relativeFile);
-                            writer.WriteLine();
+                            continue;
                         }
+
+                        var relativeFile = relativePathMap[file].Replace(Path.DirectorySeparatorChar.ToString(), pathSeparator);
+
+                        writer.Write(file);
+                        writer.Write("*");
+                        writer.Write(project);
+                        writer.Write("*");
+                        writer.Write(FormatVersion(version));
+                        writer.Write("*");
+                        writer.Write(relativeFile);
+                        writer.WriteLine();
                     }
 
                     // Write SRCSRV footer
@@ -501,6 +525,20 @@ namespace Nanicitus.Core
                         project,
                         version));
             }
+
+            if (indexMessages.Count > 0)
+            {
+                reportSink(
+                    new IndexReport(
+                        project,
+                        version.ToString(),
+                        IndexStatus.Failed,
+                        indexMessages.ToArray()));
+
+                return false;
+            }
+
+            return true;
         }
 
 #pragma warning disable SA1008 // Opening parenthesis must be spaced correctly
@@ -625,10 +663,25 @@ namespace Nanicitus.Core
 
                                 _lockedPackages.Enqueue(new Tuple<string, int>(file, ++processCount));
                             });
-                        IndexSymbols(unpackLocation, project, version);
+                        if (string.IsNullOrEmpty(unpackLocation))
+                        {
+                            continue;
+                        }
+
+                        if (!IndexSymbols(unpackLocation, project, version, reportSink))
+                        {
+                            continue;
+                        }
+
                         UploadSources(unpackLocation, project, version);
                         UploadSymbols(unpackLocation, project, version);
 
+                        reportSink(
+                            new IndexReport(
+                                project,
+                                version.ToString(),
+                                IndexStatus.Succeeded,
+                                new string[0]));
                         StoreSymbolProcessMetrics(true);
                     }
                     catch (Exception e)
