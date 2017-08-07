@@ -85,12 +85,6 @@ namespace Nanicitus.Service
             = new ConfigurationKey<bool>("ShouldRegisterForDiscovery");
 
         /// <summary>
-        /// The configuration key that is used to retrieve the temporary path location.
-        /// </summary>
-        public static readonly ConfigurationKey<string> TempPath
-            = new ConfigurationKey<string>("TempPath");
-
-        /// <summary>
         /// Returns a collection containing all the configuration keys for the application and
         /// their default values.
         /// </summary>
@@ -110,7 +104,6 @@ namespace Nanicitus.Service
                 { ServiceDiscoveryTags, new string[0] },
                 { ServicePort, 5050 },
                 { ShouldRegisterForDiscovery, true },
-                { TempPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "temp") },
             };
         }
     }

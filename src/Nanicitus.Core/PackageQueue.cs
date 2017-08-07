@@ -19,20 +19,21 @@ namespace Nanicitus.Core
         /// <summary>
         /// Stores the full path to the queued packages.
         /// </summary>
-        private readonly ConcurrentQueue<string> _queue
-            = new ConcurrentQueue<string>();
+        private readonly ConcurrentQueue<ValueTuple<string, Action<IndexReport>>> _queue
+            = new ConcurrentQueue<ValueTuple<string, Action<IndexReport>>>();
 
         /// <summary>
         /// Adds the given package to the queue for processing.
         /// </summary>
         /// <param name="fileName">The full path of the package.</param>
+        /// <param name="reportSink">The function to which the final indexing report should be provided.</param>
         /// <exception cref="ArgumentNullException">
         ///     Thrown when <paramref name="fileName"/> is <see langword="null" />.
         /// </exception>
         /// <exception cref="ArgumentException">
         ///     Thrown when <paramref name="fileName"/> is an empty string.
         /// </exception>
-        public void Enqueue(string fileName)
+        public void Enqueue(string fileName, Action<IndexReport> reportSink = null)
         {
             if (fileName == null)
             {
@@ -46,20 +47,24 @@ namespace Nanicitus.Core
                     "fileName");
             }
 
-            _queue.Enqueue(fileName);
+            _queue.Enqueue(ValueTuple.Create(fileName, reportSink));
             RaiseOnEnqueue();
         }
 
+#pragma warning disable SA1008 // Opening parenthesis must be spaced correctly
         /// <summary>
         /// Removes a package from the queue for processing.
         /// </summary>
-        /// <returns>A reference to the package.</returns>
-        public string Dequeue()
+        /// <returns>
+        ///     A tuple containing the references to the package and the function
+        ///     which will process the indexing report.
+        /// </returns>
+        public (string path, Action<IndexReport> reportSink) Dequeue()
+#pragma warning restore SA1008 // Opening parenthesis must be spaced correctly
         {
-            var path = string.Empty;
-            _queue.TryDequeue(out path);
+            _queue.TryDequeue(out var pair);
 
-            return path;
+            return pair;
         }
 
         public event EventHandler OnEnqueue;

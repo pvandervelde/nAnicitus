@@ -11,24 +11,25 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Ionic.Zip;
 using Nanicitus.Core.Monitoring;
 using Nanicitus.Core.Properties;
 using Nuclei.Configuration;
 using Nuclei.Diagnostics;
 using Nuclei.Diagnostics.Logging;
-using NuGet;
+using NuGet.Packaging;
+using NuGet.Packaging.Core;
 
 namespace Nanicitus.Core
 {
     /// <summary>
     /// Handles the indexing of symbols and sources.
     /// </summary>
-    internal sealed class SymbolIndexer : IIndexSymbols, IDisposable
+    internal sealed class SymbolIndexer : IIndexSymbols
     {
         /// <summary>
         /// Indicates the maximum number of times the indexer will try to process a package
@@ -330,6 +331,64 @@ namespace Nanicitus.Core
             }
         }
 
+        /// <summary>
+        /// Extracts the files from a NuGet symbol package.
+        /// </summary>
+        /// <param name="packageFile">The full path to the file that contains the package information.</param>
+        /// <param name="extractDirectory">The directory into which packages can be extracted.</param>
+        /// <param name="onLoadFailure">The action that should be execute if the package fails to load.</param>
+        /// <returns>The directory into which the package was extracted.</returns>
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Do not want the application to crash if there is an error loading symbols.")]
+        public string ExtractSymbolPackage(
+            string packageFile,
+            string extractDirectory,
+            Action<string, Exception> onLoadFailure)
+        {
+            try
+            {
+                int waitCount = 0;
+                while ((!PackageUtilities.IsAvailableForReading(packageFile)) && (waitCount < PackageUtilities.MaximumNumberOfTimesWaitingForPackageFileLock))
+                {
+                    waitCount++;
+                    Thread.Sleep(PackageUtilities.PackageFileLockSleepTimeInMilliSeconds);
+                }
+
+                using (var reader = new PackageArchiveReader(new ZipArchive(new FileStream(packageFile, FileMode.Open, FileAccess.Read))))
+                {
+                    var identity = reader.GetIdentity();
+                    var destinationDirectory = Path.Combine(
+                        extractDirectory,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "{0}.{1}",
+                            identity.Id,
+                            identity.Version.ToNormalizedString()));
+                    if (!Directory.Exists(destinationDirectory))
+                    {
+                        Directory.CreateDirectory(destinationDirectory);
+                    }
+
+                    foreach (var file in reader.GetFiles())
+                    {
+                        reader.ExtractFile(
+                            file,
+                            Path.Combine(destinationDirectory, file),
+                            new NuGetLogger(_diagnostics));
+                    }
+
+                    return destinationDirectory;
+                }
+            }
+            catch (Exception e)
+            {
+                onLoadFailure?.Invoke(packageFile, e);
+                return null;
+            }
+        }
+
         private void HandleOnEnqueue(object sender, EventArgs e)
         {
             CreateWorker();
@@ -344,12 +403,26 @@ namespace Nanicitus.Core
         /// <param name="unpackLocation">The directory in which the package was extracted.</param>
         /// <param name="project">The name of the project for which the PDBs are published.</param>
         /// <param name="version">The version of the project for which the PDBs are published.</param>
-        private void IndexSymbols(string unpackLocation, string project, Version version)
+        /// <param name="reportSink">The function to which the indexing reports should be provided.</param>
+        /// <returns>A value indicating whether the indexing was successful.</returns>
+        private bool IndexSymbols(string unpackLocation, string project, Version version, Action<IndexReport> reportSink)
         {
             var sourceServerUrl = _configuration.Value(CoreConfigurationKeys.SourceServerUrl);
             var sourceLocation = Path.Combine(unpackLocation, "src");
 
             var pdbFiles = GetPdbFiles(unpackLocation);
+            if (pdbFiles.Length == 0)
+            {
+                reportSink(
+                    new IndexReport(
+                        project,
+                        version.ToString(),
+                        IndexStatus.Failed,
+                        new[] { "No PDB files found" }));
+                return false;
+            }
+
+            var indexMessages = new List<string>();
             foreach (var pdbFile in pdbFiles)
             {
                 _diagnostics.Log(
@@ -393,23 +466,33 @@ namespace Nanicitus.Core
                         continue;
                     }
 
+                    // check that all files mentioned in the PDB are there
                     // Iterate files. Add path to file in SRCSRV stream
                     var pathSeparator = DetermineSeparatingCharacter(sourceServerUrl);
                     foreach (var file in files)
                     {
-                        if (relativePathMap.ContainsKey(file))
+                        if (!relativePathMap.ContainsKey(file))
                         {
-                            var relativeFile = relativePathMap[file].Replace(Path.DirectorySeparatorChar.ToString(), pathSeparator);
+                            indexMessages.Add(
+                                string.Format(
+                                    CultureInfo.InvariantCulture,
+                                    "Could not determine relative source file path to: {1} for PDB: {0}. It is possible the source file was not present in the symbol package",
+                                    Path.GetFileName(pdbFile),
+                                    file));
 
-                            writer.Write(file);
-                            writer.Write("*");
-                            writer.Write(project);
-                            writer.Write("*");
-                            writer.Write(FormatVersion(version));
-                            writer.Write("*");
-                            writer.Write(relativeFile);
-                            writer.WriteLine();
+                            continue;
                         }
+
+                        var relativeFile = relativePathMap[file].Replace(Path.DirectorySeparatorChar.ToString(), pathSeparator);
+
+                        writer.Write(file);
+                        writer.Write("*");
+                        writer.Write(project);
+                        writer.Write("*");
+                        writer.Write(FormatVersion(version));
+                        writer.Write("*");
+                        writer.Write(relativeFile);
+                        writer.WriteLine();
                     }
 
                     // Write SRCSRV footer
@@ -442,17 +525,32 @@ namespace Nanicitus.Core
                         project,
                         version));
             }
+
+            if (indexMessages.Count > 0)
+            {
+                reportSink(
+                    new IndexReport(
+                        project,
+                        version.ToString(),
+                        IndexStatus.Failed,
+                        indexMessages.ToArray()));
+
+                return false;
+            }
+
+            return true;
         }
 
-        private bool LoadPackage(out string packageFile, out ZipPackage package)
+#pragma warning disable SA1008 // Opening parenthesis must be spaced correctly
+        private (string packageFile, Action<IndexReport> reportSink, int processCount, PackageIdentity id) LoadPackage()
+#pragma warning restore SA1008 // Opening parenthesis must be spaced correctly
         {
-            packageFile = null;
-            package = null;
-
+            string packageFile = null;
+            Action<IndexReport> reportSink = null;
             int processCount = 0;
             if (!_queue.IsEmpty)
             {
-                packageFile = _queue.Dequeue();
+                (packageFile, reportSink) = _queue.Dequeue();
             }
             else
             {
@@ -467,7 +565,7 @@ namespace Nanicitus.Core
             if (packageFile == null)
             {
                 _diagnostics.Log(LevelToLog.Trace, Resources.Log_Messages_SymbolIndexer_PackageNotDefined);
-                return false;
+                return (packageFile, reportSink, processCount, null);
             }
 
             if (processCount > MaximumNumberOfTimesPackageCanBeProcessed)
@@ -478,23 +576,11 @@ namespace Nanicitus.Core
                         CultureInfo.InvariantCulture,
                         Resources.Log_Messages_PackageLoadCountBeyondMaximum_WithPackagePath,
                         packageFile));
-                return false;
+                return (packageFile, reportSink, processCount, null);
             }
 
-            package = PackageUtilities.LoadSymbolPackage(
-                packageFile,
-                (file, e) =>
-                {
-                    _diagnostics.Log(
-                        LevelToLog.Error,
-                        string.Format(
-                            CultureInfo.InvariantCulture,
-                            Resources.Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException,
-                            e));
-
-                    _lockedPackages.Enqueue(new Tuple<string, int>(file, ++processCount));
-                });
-            return package != null;
+            var id = PackageUtilities.GetPackageIdentity(packageFile);
+            return (packageFile, reportSink, processCount, id);
         }
 
         private void MarkSymbolsAsProcessed(string packageFile, string project, Version version)
@@ -545,15 +631,10 @@ namespace Nanicitus.Core
                         break;
                     }
 
-                    string packageFile;
-                    ZipPackage package;
-                    if (!LoadPackage(out packageFile, out package))
-                    {
-                        continue;
-                    }
+                    (string packageFile, Action<IndexReport> reportSink, int processCount, PackageIdentity id) = LoadPackage();
 
-                    var project = package.Id;
-                    var version = package.Version.Version;
+                    var project = id.Id;
+                    var version = id.Version.Version;
 
                     _diagnostics.Log(
                         LevelToLog.Info,
@@ -565,13 +646,42 @@ namespace Nanicitus.Core
 
                     // Unpack package file in temp location
                     var processingWasSuccessful = true;
-                    var unpackLocation = Unpack(packageFile, project, version);
+                    var unpackLocation = string.Empty;
                     try
                     {
-                        IndexSymbols(unpackLocation, project, version);
+                        unpackLocation = ExtractSymbolPackage(
+                            packageFile,
+                            _unpackDirectory,
+                            (file, e) =>
+                            {
+                                _diagnostics.Log(
+                                    LevelToLog.Error,
+                                    string.Format(
+                                        CultureInfo.InvariantCulture,
+                                        Resources.Log_Messages_SymbolIndexer_PackageLoadingFailed_WithException,
+                                        e));
+
+                                _lockedPackages.Enqueue(new Tuple<string, int>(file, ++processCount));
+                            });
+                        if (string.IsNullOrEmpty(unpackLocation))
+                        {
+                            continue;
+                        }
+
+                        if (!IndexSymbols(unpackLocation, project, version, reportSink))
+                        {
+                            continue;
+                        }
+
                         UploadSources(unpackLocation, project, version);
                         UploadSymbols(unpackLocation, project, version);
 
+                        reportSink(
+                            new IndexReport(
+                                project,
+                                version.ToString(),
+                                IndexStatus.Succeeded,
+                                new string[0]));
                         StoreSymbolProcessMetrics(true);
                     }
                     catch (Exception e)
@@ -587,13 +697,22 @@ namespace Nanicitus.Core
                                 project,
                                 version));
 
+                        reportSink(
+                            new IndexReport(
+                                project,
+                                version.ToString(),
+                                IndexStatus.Failed,
+                                new[] { e.ToString() }));
                         StoreSymbolProcessMetrics(false);
                     }
                     finally
                     {
                         try
                         {
-                            Directory.Delete(unpackLocation, true);
+                            if (Directory.Exists(unpackLocation))
+                            {
+                                Directory.Delete(unpackLocation, true);
+                            }
                         }
                         catch (IOException e)
                         {
@@ -692,31 +811,6 @@ namespace Nanicitus.Core
                 {
                     { "Success", wasSuccessful.ToString() }
                 });
-        }
-
-        private string Unpack(string packageFile, string project, Version version)
-        {
-            var destinationDirectory = Path.Combine(
-                _unpackDirectory,
-                string.Format(
-                    CultureInfo.InvariantCulture,
-                    "{0}.{1}",
-                    project,
-                    FormatVersion(version)));
-            if (!Directory.Exists(destinationDirectory))
-            {
-                Directory.CreateDirectory(destinationDirectory);
-            }
-
-            using (var zipFile = ZipFile.Read(packageFile))
-            {
-                foreach (var entry in zipFile)
-                {
-                    entry.Extract(destinationDirectory, ExtractExistingFileAction.OverwriteSilently);
-                }
-            }
-
-            return destinationDirectory;
         }
 
         private void UploadSources(string unpackLocation, string project, Version version)

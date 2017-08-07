@@ -116,6 +116,16 @@ namespace Nanicitus.Core
             = new ConfigurationKey<string>("SymbolServerUrl");
 
         /// <summary>
+        /// The configuration key that is used to retrieve the temporary path location.
+        /// </summary>
+        [SuppressMessage(
+            "Microsoft.Security",
+            "CA2104:DoNotDeclareReadOnlyMutableReferenceTypes",
+            Justification = "ConfigurationKey objects are immutable.")]
+        public static readonly ConfigurationKey<string> TempPath
+            = new ConfigurationKey<string>("TempPath");
+
+        /// <summary>
         /// The configuration key that is used to retrieve path for the directory in
         /// which the uploads will be placed.
         /// </summary>
@@ -140,6 +150,7 @@ namespace Nanicitus.Core
                     { ProcessedSymbolsPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "symbols") },
                     { SourceServerUrl, "http://example.com/sources" },
                     { SymbolServerUrl, "http://example.com/symbols" },
+                    { TempPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "temp") },
                     { UploadPath, Path.Combine(Assembly.GetExecutingAssembly().LocalDirectoryPath(), "uploads") },
                 };
         }

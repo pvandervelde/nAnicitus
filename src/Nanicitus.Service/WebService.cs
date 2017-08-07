@@ -75,7 +75,7 @@ namespace Nanicitus.Service
             _serviceInfo.IsEnabled = true;
             _serviceInfo.IsStandby = true;
 
-            var tempPath = _configuration.Value(ServiceConfigurationKeys.TempPath);
+            var tempPath = _configuration.Value(CoreConfigurationKeys.TempPath);
             if (!Directory.Exists(tempPath))
             {
                 Directory.CreateDirectory(tempPath);
