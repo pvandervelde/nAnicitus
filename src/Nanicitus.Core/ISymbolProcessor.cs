@@ -6,6 +6,7 @@
 //-----------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 
@@ -19,24 +20,28 @@ namespace Nanicitus.Core
         /// <summary>
         /// Indexes the symbols in the package at the given path.
         /// </summary>
-        /// <param name="path">The full path to the symbol package.</param>
-        void Index(string path);
+        /// <param name="paths">A collection containing the full paths to the symbol packages that should be indexed.</param>
+        /// <returns>The status reports of the indexing process.</returns>
+        IEnumerable<IndexReport> Index(IEnumerable<string> paths);
 
+#pragma warning disable SA1008 // Opening parenthesis must be spaced correctly
         /// <summary>
         /// Returns a value indicating whether or not the symbol package at the given
         /// location is a valid symbol package.
         /// </summary>
-        /// <param name="path">The full path to the symbol package.</param>
+        /// <param name="paths">A collection containing the full paths to the symbol packages.</param>
         /// <returns>
-        ///     <see langword="true" /> if the symbol package at the given location is valid,
-        ///     otherwise <see langword="false" />.
+        ///     A tuple containing the overall result of the operation and the status reports
+        ///     for the indexing process.
         /// </returns>
-        bool IsValid(string path);
+        (bool result, IEnumerable<IndexReport> messages) IsValid(IEnumerable<string> paths);
+#pragma warning restore SA1008 // Opening parenthesis must be spaced correctly
 
         /// <summary>
         /// Re-Indexes all the previously processed symbols.
         /// </summary>
-        void RebuildIndex();
+        /// <returns>The status reports of the indexing process.</returns>
+        IEnumerable<IndexReport> RebuildIndex();
 
         /// <summary>
         /// Starts the symbol indexing process.

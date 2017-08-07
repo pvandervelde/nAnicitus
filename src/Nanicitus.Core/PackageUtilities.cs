@@ -8,9 +8,11 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Threading;
-using NuGet;
+using NuGet.Packaging;
+using NuGet.Packaging.Core;
 
 namespace Nanicitus.Core
 {
@@ -28,13 +30,13 @@ namespace Nanicitus.Core
         /// Indicates the maximum number of times that the process will wait for a locked file before
         /// giving up and moving on.
         /// </summary>
-        private const int MaximumNumberOfTimesWaitingForPackageFileLock = 3;
+        public const int MaximumNumberOfTimesWaitingForPackageFileLock = 3;
 
         /// <summary>
         /// The amount of time the process sleeps when it encounters a file that is locked by the
         /// operating system.
         /// </summary>
-        private const int PackageFileLockSleepTimeInMilliSeconds = 5000;
+        public const int PackageFileLockSleepTimeInMilliSeconds = 5000;
 
         /// <summary>
         /// The HResult value that indicates that a portion of the file is locked by the operating
@@ -76,16 +78,15 @@ namespace Nanicitus.Core
         }
 
         /// <summary>
-        /// Loads NuGet package information for a given file.
+        /// Returns the identity of a symbol package.
         /// </summary>
-        /// <param name="packageFile">The full path to the file that contains the package information.</param>
-        /// <param name="onLoadFailure">The action that should be execute if the package fails to load.</param>
-        /// <returns>The package information.</returns>
+        /// <param name="packageFile">The full path to the file that contains the symbol package information.</param>
+        /// <returns>The identity of the package, or <see langword="null" /> if the file could not be loaded.</returns>
         [SuppressMessage(
             "Microsoft.Design",
             "CA1031:DoNotCatchGeneralExceptionTypes",
             Justification = "Do not want the application to crash if there is an error loading symbols.")]
-        public static ZipPackage LoadSymbolPackage(string packageFile, Action<string, Exception> onLoadFailure)
+        public static PackageIdentity GetPackageIdentity(string packageFile)
         {
             try
             {
@@ -96,11 +97,13 @@ namespace Nanicitus.Core
                     Thread.Sleep(PackageFileLockSleepTimeInMilliSeconds);
                 }
 
-                return new ZipPackage(packageFile);
+                using (var reader = new PackageArchiveReader(new ZipArchive(new FileStream(packageFile, FileMode.Open, FileAccess.Read))))
+                {
+                    return reader.GetIdentity();
+                }
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                onLoadFailure?.Invoke(packageFile, e);
                 return null;
             }
         }

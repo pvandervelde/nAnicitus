@@ -6,8 +6,10 @@
 //-----------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -51,6 +53,13 @@ namespace Nanicitus.Service.Controllers
             _symbolProcessor = symbolProcessor ?? throw new ArgumentNullException("symbolProcessor");
         }
 
+        /// <summary>
+        /// Verifies that the symbol packages which are being pushed are valid.
+        /// </summary>
+        /// <returns>
+        /// A HTTP response message indicating whether or not the symbol packages are
+        /// valid or not.
+        /// </returns>
         [HttpPut]
         public HttpResponseMessage IsValid()
         {
@@ -62,59 +71,80 @@ namespace Nanicitus.Service.Controllers
                 return Request.CreateResponse(HttpStatusCode.ServiceUnavailable);
             }
 
-            var tempPath = ServiceConfiguration.Value(ServiceConfigurationKeys.TempPath);
-            var uploadPath = ServiceConfiguration.Value(CoreConfigurationKeys.UploadPath);
+            var tempPath = ServiceConfiguration.Value(CoreConfigurationKeys.TempPath);
+            var uploadPath = Path.Combine(tempPath, Guid.NewGuid().ToString());
 
             var isValid = false;
-            if (Request.Content.IsMimeMultipartContent())
+            var reports = new List<IndexReport>();
+            try
             {
-                var streamProvider = new ProvidedFileNameMultipartFormDataStreamProvider(tempPath);
-
-                try
+                if (!Directory.Exists(uploadPath))
                 {
-                    Request.Content.ReadAsMultipartAsync(streamProvider).Wait();
-                }
-                catch (AggregateException e)
-                {
-                    Diagnostics.Log(LevelToLog.Error, e.ToString());
+                    Directory.CreateDirectory(uploadPath);
                 }
 
-                isValid = true;
-                foreach (var fileData in streamProvider.FileData)
+                var symbolPackages = new List<string>();
+                if (Request.Content.IsMimeMultipartContent())
                 {
-                    // Turn the file into a nuget package and then move it to the
-                    // storage location
-                    var package = PackageUtilities.LoadSymbolPackage(
-                        fileData.LocalFileName,
-                        (file, e) =>
-                        {
-                            Diagnostics.Log(
-                                LevelToLog.Error,
-                                string.Format(
-                                    CultureInfo.InvariantCulture,
-                                    "Failed to load. Error was: {0}",
-                                    e));
-                        });
-                    if (package != null)
+                    var streamProvider = new ProvidedFileNameMultipartFormDataStreamProvider(tempPath);
+
+                    try
                     {
-                        var fileName = string.Format(
-                            CultureInfo.InvariantCulture,
-                            "{0}.{1}.symbols.nupkg",
-                            package.Id,
-                            package.Version);
-
-                        var symbolPackage = Path.Combine(uploadPath, fileName);
-                        File.Move(fileData.LocalFileName, symbolPackage);
-                        isValid = isValid && _symbolProcessor.IsValid(symbolPackage);
+                        Request.Content.ReadAsMultipartAsync(streamProvider).Wait();
                     }
-                    else
+                    catch (AggregateException e)
                     {
-                        isValid = false;
+                        Diagnostics.Log(LevelToLog.Error, e.ToString());
+                    }
+
+                    isValid = true;
+                    foreach (var fileData in streamProvider.FileData)
+                    {
+                        // Turn the file into a nuget package and then move it to the
+                        // storage location
+                        var packageIdentity = PackageUtilities.GetPackageIdentity(fileData.LocalFileName);
+                        if (packageIdentity != null)
+                        {
+                            var fileName = string.Format(
+                                CultureInfo.InvariantCulture,
+                                "{0}.{1}.symbols.nupkg",
+                                packageIdentity.Id,
+                                packageIdentity.Version);
+
+                            var symbolPackage = Path.Combine(uploadPath, fileName);
+                            File.Move(fileData.LocalFileName, symbolPackage);
+                            symbolPackages.Add(symbolPackage);
+                        }
+                        else
+                        {
+                            isValid = false;
+                        }
+                    }
+                }
+
+                var result = _symbolProcessor.IsValid(symbolPackages);
+                isValid = isValid && result.result;
+                reports.AddRange(result.messages);
+            }
+            finally
+            {
+                if (Directory.Exists(uploadPath))
+                {
+                    try
+                    {
+                        Directory.Delete(uploadPath);
+                    }
+                    catch (IOException)
+                    {
+                        // Ignore it
                     }
                 }
             }
 
             var responseCode = isValid ? HttpStatusCode.OK : HttpStatusCode.BadRequest;
+            return Request.CreateResponse(
+                responseCode,
+                reports.ToArray());
         }
 
         /// <summary>
@@ -152,7 +182,7 @@ namespace Nanicitus.Service.Controllers
                 return Request.CreateResponse(HttpStatusCode.ServiceUnavailable);
             }
 
-            var tempPath = ServiceConfiguration.Value(ServiceConfigurationKeys.TempPath);
+            var tempPath = ServiceConfiguration.Value(CoreConfigurationKeys.TempPath);
             var uploadPath = ServiceConfiguration.Value(CoreConfigurationKeys.UploadPath);
             if (Request.Content.IsMimeMultipartContent())
             {
@@ -167,41 +197,41 @@ namespace Nanicitus.Service.Controllers
                     Diagnostics.Log(LevelToLog.Error, e.ToString());
                 }
 
-                var receivedAllFiles = true;
+                var symbolPackages = new List<string>();
+                var reports = new List<IndexReport>();
                 foreach (var fileData in streamProvider.FileData)
                 {
                     // Turn the file into a nuget package and then move it to the
                     // storage location
-                    var package = PackageUtilities.LoadSymbolPackage(
-                        fileData.LocalFileName,
-                        (file, e) =>
-                        {
-                            Diagnostics.Log(
-                                LevelToLog.Error,
-                                string.Format(
-                                    CultureInfo.InvariantCulture,
-                                    "Failed to load. Error was: {0}",
-                                    e));
-                        });
-                    if (package != null)
+                    var packageIdentity = PackageUtilities.GetPackageIdentity(fileData.LocalFileName);
+                    if (packageIdentity != null)
                     {
                         var fileName = string.Format(
                             CultureInfo.InvariantCulture,
                             "{0}.{1}.symbols.nupkg",
-                            package.Id,
-                            package.Version);
+                            packageIdentity.Id,
+                            packageIdentity.Version);
 
                         var symbolPackage = Path.Combine(uploadPath, fileName);
                         File.Move(fileData.LocalFileName, symbolPackage);
-                        _symbolProcessor.Index(symbolPackage);
+                        symbolPackages.Add(symbolPackage);
                     }
                     else
                     {
-                        receivedAllFiles = false;
+                        reports.Add(
+                            new IndexReport(
+                                fileData.LocalFileName,
+                                "Unknown",
+                                IndexStatus.Failed,
+                                new[]
+                                {
+                                    "Could not load file."
+                                }));
                     }
                 }
 
-                if (receivedAllFiles)
+                reports.AddRange(_symbolProcessor.Index(symbolPackages));
+                if (reports.Any(r => r.Status != IndexStatus.Succeeded))
                 {
                     return Request.CreateResponse(
                         HttpStatusCode.Accepted);
@@ -210,7 +240,7 @@ namespace Nanicitus.Service.Controllers
                 {
                     return Request.CreateResponse(
                         HttpStatusCode.NotAcceptable,
-                        "Not all files were valid NuGet symbol packages.");
+                        reports.ToArray());
                 }
             }
 

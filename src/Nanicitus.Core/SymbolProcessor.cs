@@ -56,9 +56,9 @@ namespace Nanicitus.Core
         {
             _configuration = configuration ?? throw new ArgumentNullException("configuration");
             _diagnostics = diagnostics ?? throw new ArgumentNullException("diagnostics");
-            _indexerBuilder = indexerBuilder ?? throw new ArgumentNullException("indexer");
+            _indexerBuilder = indexerBuilder ?? throw new ArgumentNullException("indexerBuilder");
             _metrics = metrics ?? throw new ArgumentNullException("metrics");
-            _queueBuilder = queueBuilder ?? throw new ArgumentNullException("queue");
+            _queueBuilder = queueBuilder ?? throw new ArgumentNullException("queueBuilder");
         }
 
         /// <summary>
@@ -94,46 +94,165 @@ namespace Nanicitus.Core
         /// <summary>
         /// Indexes the symbols in the package at the given path.
         /// </summary>
-        /// <param name="path">The full path to the symbol package.</param>
-        public void Index(string path)
+        /// <param name="paths">A collection containing the full paths to the symbol packages that should be indexed.</param>
+        /// <returns>The status reports of the indexing process.</returns>
+        public IEnumerable<IndexReport> Index(IEnumerable<string> paths)
         {
             ValidateIndexingInstances();
             _metrics.Increment("Symbols.Uploaded");
 
-            _indexerQueue.Enqueue(path);
-            _diagnostics.Log(
-                LevelToLog.Info,
-                string.Format(
-                    CultureInfo.InvariantCulture,
-                    Resources.Log_Messages_SymbolProcessor_FileToIndex_WithFilePath,
-                    path));
+            if (paths == null)
+            {
+                return new[]
+                {
+                    new IndexReport(
+                        "Unknown",
+                        "Unknown",
+                        IndexStatus.Failed,
+                        new[] { "No symbol package paths provided." })
+                };
+            }
+
+            var result = new Dictionary<string, Task<IndexReport>>();
+            foreach (var path in paths)
+            {
+                var addTask = new TaskCompletionSource<IndexReport>();
+                Action<IndexReport> action = r => addTask.SetResult(r);
+
+                _indexerQueue.Enqueue(path, action);
+                _diagnostics.Log(
+                    LevelToLog.Info,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolProcessor_FileToIndex_WithFilePath,
+                        path));
+
+                result.Add(path, addTask.Task);
+            }
+
+            Task.WaitAll(result.Values.ToArray(), TimeSpan.FromSeconds(60));
+            return result
+                .Select(
+                    pair =>
+                    {
+                        var path = pair.Key;
+                        var t = pair.Value;
+                        if (t.IsCompleted)
+                        {
+                            return t.Result;
+                        }
+
+                        var id = PackageUtilities.GetPackageIdentity(path);
+                        return new IndexReport(
+                            id.Id,
+                            id.Version.ToString(),
+                            IndexStatus.Failed,
+                            new[] { "Failed to process symbols within timespan of 60 seconds." });
+                    });
         }
 
+#pragma warning disable SA1008 // Opening parenthesis must be spaced correctly
         /// <summary>
         /// Returns a value indicating whether or not the symbol package at the given
         /// location is a valid symbol package.
         /// </summary>
-        /// <param name="path">The full path to the symbol package.</param>
+        /// <param name="paths">A collection containing the full paths to the symbol packages.</param>
         /// <returns>
-        ///     <see langword="true" /> if the symbol package at the given location is valid,
-        ///     otherwise <see langword="false" />.
+        ///     A tuple containing the overall result of the operation and the status reports
+        ///     for the indexing process.
         /// </returns>
-        public bool IsValid(string path)
+        public (bool result, IEnumerable<IndexReport> messages) IsValid(IEnumerable<string> paths)
+#pragma warning restore SA1008 // Opening parenthesis must be spaced correctly
         {
+            if (paths == null)
+            {
+                return (
+                    false,
+                    new[]
+                    {
+                        new IndexReport(
+                            "Unknown",
+                            "Unknown",
+                            IndexStatus.Failed,
+                            new[] { "No symbol package paths provided." })
+                    });
+            }
+
             // process the symbols on a separate queue in a separate location
             var validationConfiguration = new ConstantConfiguration(
                 new Dictionary<ConfigurationKeyBase, object>
-                { });
+                {
+                    {
+                        CoreConfigurationKeys.SourceServerUrl,
+                        _configuration.Value(CoreConfigurationKeys.SourceServerUrl)
+                    },
+                    {
+                        CoreConfigurationKeys.ProcessedPackagesPath,
+                        Path.Combine(
+                            _configuration.Value(CoreConfigurationKeys.TempPath),
+                            Guid.NewGuid().ToString())
+                    },
+                    {
+                        CoreConfigurationKeys.ProcessedSourcePath,
+                        Path.Combine(
+                            _configuration.Value(CoreConfigurationKeys.TempPath),
+                            Guid.NewGuid().ToString())
+                    },
+                    {
+                        CoreConfigurationKeys.ProcessedSymbolsPath,
+                        Path.Combine(
+                            _configuration.Value(CoreConfigurationKeys.TempPath),
+                            Guid.NewGuid().ToString())
+                    },
+                });
+
+            var result = new Dictionary<string, Task<IndexReport>>();
+
             var validationQueue = _queueBuilder();
             using (var indexer = _indexerBuilder(validationQueue, validationConfiguration))
             {
+                indexer.Start();
+
+                foreach (var path in paths)
+                {
+                    var addTask = new TaskCompletionSource<IndexReport>();
+                    Action<IndexReport> action = r => addTask.SetResult(r);
+
+                    validationQueue.Enqueue(path, action);
+                    result.Add(path, addTask.Task);
+                }
+
+                indexer.Stop(true);
             }
+
+            Task.WaitAll(result.Values.ToArray(), TimeSpan.FromSeconds(60));
+            var reports = result
+                .Select(
+                    pair =>
+                    {
+                        var path = pair.Key;
+                        var t = pair.Value;
+                        if (t.IsCompleted)
+                        {
+                            return t.Result;
+                        }
+
+                        var id = PackageUtilities.GetPackageIdentity(path);
+                        return new IndexReport(
+                            id.Id,
+                            id.Version.ToString(),
+                            IndexStatus.Failed,
+                            new[] { "Failed to process symbols within timespan of 60 seconds." });
+                    });
+
+            return (!reports.Any(r => r.Status != IndexStatus.Succeeded), reports);
         }
 
         /// <summary>
         /// Re-Indexes all the previously processed symbols.
         /// </summary>
-        public void RebuildIndex()
+        /// <returns>The status reports of the indexing process.</returns>
+        public IEnumerable<IndexReport> RebuildIndex()
         {
             ValidateIndexingInstances();
             _metrics.Increment("Symbols.RebuildIndex");
@@ -143,13 +262,27 @@ namespace Nanicitus.Core
 
             var uploadDirectory = _configuration.Value(CoreConfigurationKeys.UploadPath);
             var processedFilePath = _configuration.Value(CoreConfigurationKeys.ProcessedPackagesPath);
+
+            var result = new Dictionary<string, Task<IndexReport>>();
             foreach (var file in Directory.EnumerateFiles(processedFilePath))
             {
+                var addTask = new TaskCompletionSource<IndexReport>();
+                Action<IndexReport> action = r => addTask.SetResult(r);
+
                 var target = Path.Combine(
                     uploadDirectory,
                     Path.GetFileName(file));
                 File.Move(file, target);
-                _indexerQueue.Enqueue(target);
+
+                _indexerQueue.Enqueue(target, action);
+                _diagnostics.Log(
+                    LevelToLog.Info,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.Log_Messages_SymbolProcessor_FileToIndex_WithFilePath,
+                        target));
+
+                result.Add(target, addTask.Task);
             }
 
             var symbolPath = _configuration.Value(CoreConfigurationKeys.ProcessedSymbolsPath);
@@ -203,6 +336,26 @@ namespace Nanicitus.Core
             }
 
             _indexer.Start();
+
+            Task.WaitAll(result.Values.ToArray(), TimeSpan.FromSeconds(60));
+            return result
+                .Select(
+                    pair =>
+                    {
+                        var path = pair.Key;
+                        var t = pair.Value;
+                        if (t.IsCompleted)
+                        {
+                            return t.Result;
+                        }
+
+                        var id = PackageUtilities.GetPackageIdentity(path);
+                        return new IndexReport(
+                            id.Id,
+                            id.Version.ToString(),
+                            IndexStatus.Failed,
+                            new[] { "Failed to process symbols within timespan of 60 seconds." });
+                    });
         }
 
         private void RemoveIndexingInstances()

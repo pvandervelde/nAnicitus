@@ -155,6 +155,7 @@
             <Word>marshalers</Word>
             <Word>mdi</Word>
             <Word>mergable</Word>
+            <Word>milli</Word>
             <Word>misc</Word>
             <Word>miscased</Word>
             <Word>monitorable</Word>
@@ -409,6 +410,8 @@
             <Term CompoundAlternate="LogOn">logon</Term>
             <Term CompoundAlternate="LogOns">logons</Term>
             <Term CompoundAlternate="MapInfo">mapinfo</Term>
+            <Term CompoundAlternate="MilliSecond">millisecond</Term>
+            <Term CompoundAlternate="MilliSeconds">milliseconds</Term>
             <Term CompoundAlternate="MsBuild">msbuild</Term>
             <Term CompoundAlternate="NetBios">netbios</Term>
             <Term CompoundAlternate="NewLine">newline</Term>

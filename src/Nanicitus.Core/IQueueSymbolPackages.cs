@@ -18,13 +18,19 @@ namespace Nanicitus.Core
         /// Adds the given package to the queue for processing.
         /// </summary>
         /// <param name="fileName">The full path of the package.</param>
-        void Enqueue(string fileName);
+        /// <param name="reportSink">The function to which the final indexing report should be provided.</param>
+        void Enqueue(string fileName, Action<IndexReport> reportSink = null);
 
+#pragma warning disable SA1008 // Opening parenthesis must be spaced correctly
         /// <summary>
         /// Removes a package from the queue for processing.
         /// </summary>
-        /// <returns>A reference to the package.</returns>
-        string Dequeue();
+        /// <returns>
+        ///     A tuple containing the references to the package and the function
+        ///     which will process the indexing report.
+        /// </returns>
+        (string path, Action<IndexReport> reportSink) Dequeue();
+#pragma warning restore SA1008 // Opening parenthesis must be spaced correctly
 
         /// <summary>
         /// An event raised when a new package is enqueued.
