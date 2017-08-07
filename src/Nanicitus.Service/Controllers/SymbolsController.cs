@@ -231,7 +231,7 @@ namespace Nanicitus.Service.Controllers
                 }
 
                 reports.AddRange(_symbolProcessor.Index(symbolPackages));
-                if (reports.Any(r => r.Status != IndexStatus.Succeeded))
+                if (!reports.Any(r => r.Status != IndexStatus.Succeeded))
                 {
                     return Request.CreateResponse(
                         HttpStatusCode.Accepted);
